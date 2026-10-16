@@ -30,19 +30,19 @@ export function programarCortesHorarios(api: Api): void {
           return;
         }
 
-        // 1. Enviar cada reporte por separado al chat grupal principal si está configurado
-        if (config.telegram.reportChatId) {
+        // 1. Enviar cada reporte por separado a cada uno de los grupos configurados
+        for (const chatId of config.telegram.reportChatIds) {
           for (const rep of reportes) {
             try {
-              await api.sendMessage(config.telegram.reportChatId, rep.mensaje, {
+              await api.sendMessage(chatId, rep.mensaje, {
                 parse_mode: "Markdown",
               });
               console.log(
-                `[INFO] Reporte de corte ${etiqueta} (${rep.nomina}) enviado al chat grupal ${config.telegram.reportChatId}`
+                `[INFO] Reporte de corte ${etiqueta} (${rep.nomina}) enviado al grupo ${chatId}`
               );
             } catch (err: any) {
               console.error(
-                `[ERROR] No se pudo enviar el reporte de corte (${rep.nomina}) al chat ${config.telegram.reportChatId}:`,
+                `[ERROR] No se pudo enviar el reporte de corte (${rep.nomina}) al grupo ${chatId}:`,
                 err.message
               );
             }

@@ -27,7 +27,12 @@ export function validarConfig(): void {
 export const config = {
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN!,
-    reportChatId: process.env.TELEGRAM_REPORT_CHAT_ID || null,
+    reportChatIds: process.env.TELEGRAM_REPORT_CHAT_ID
+      ? process.env.TELEGRAM_REPORT_CHAT_ID.split(",").map((id) => id.trim()).filter(Boolean)
+      : [],
+    reportChatId: process.env.TELEGRAM_REPORT_CHAT_ID
+      ? process.env.TELEGRAM_REPORT_CHAT_ID.split(",")[0]?.trim() || null
+      : null,
     managerChatIds: process.env.TELEGRAM_MANAGER_CHAT_ID
       ? process.env.TELEGRAM_MANAGER_CHAT_ID.split(",").map((id) => id.trim()).filter(Boolean)
       : [],

@@ -37,12 +37,14 @@ export function registrarHandlers(bot: Bot): void {
 
     const remitente = obtenerNombreRemitente(ctx);
     const esVotoListo = esIntencionVotoListo(texto);
+    const esGrupo = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
+    const origenDesc = esGrupo && "title" in ctx.chat ? `Grupo "${(ctx.chat as any).title}" (${ctx.chat.id})` : `Privado (${ctx.chat?.id})`;
 
     // ==========================================================
-    // CASO A: INTENCIÓN "VOTO LISTO" (ej: "27334492 voto listo")
+    // CASO A: INTENCIÓN "VOTO LISTO" (ej: "12345678 voto listo")
     // ==========================================================
     if (esVotoListo) {
-      console.log(`[INFO] Registro de 'voto listo' de ${remitente}: [${cedulas.join(", ")}]`);
+      console.log(`[INFO] [${origenDesc}] Registro de 'voto listo' de ${remitente}: [${cedulas.join(", ")}]`);
 
       // Si es una sola cédula (caso más común y rápido)
       if (cedulas.length === 1) {
@@ -147,4 +149,29 @@ export function registrarHandlers(bot: Bot): void {
       await ctx.reply(formatearTarjetaElector(voter), { parse_mode: "Markdown" });
     }
   });
+
+  // 3. Cuando el bot es agregado a un grupo nuevo
+  bot.on(":new_chat_members", async (ctx) => {
+    const nuevos = ctx.message?.new_chat_members || [];
+    const botId = ctx.me.id;
+    const botFueAgregado = nuevos.some((m) => m.id === botId);
+
+    if (botFueAgregado) {
+      const chatTitle = ctx.chat && "title" in ctx.chat ? (ctx.chat as any).title : "Grupo";
+      const chatId = ctx.chat?.id;
+      console.log(`\n🎉 [NUEVO GRUPO] El bot fue agregado al grupo: "${chatTitle}" (ID: ${chatId})`);
+
+      await ctx.reply(
+        `🤖 *¡Bot de Votaciones Conectado a este Grupo!*\n\n` +
+          `📛 *Grupo:* ${chatTitle}\n` +
+          `🆔 *Chat ID:* \`${chatId}\`\n\n` +
+          `Para registrar votos escribe:\n` +
+          `👉 \`12345678 voto listo\`\n\n` +
+          `Para ver todos los comandos disponibles:\n` +
+          `👉 \`/comandos\``,
+        { parse_mode: "Markdown" }
+      );
+    }
+  });
 }
+

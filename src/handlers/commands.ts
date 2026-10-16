@@ -303,13 +303,21 @@ export function registrarComandos(bot: Bot): void {
   // Comando /id (para conocer el ID del chat grupal o del usuario)
   bot.command("id", async (ctx: Context) => {
     const chatId = ctx.chat?.id;
-    const userId = ctx.from?.id;
+    const chatTitle = ctx.chat && "title" in ctx.chat ? (ctx.chat as any).title : "Chat Privado";
     const tipo = ctx.chat?.type;
+    const userId = ctx.from?.id;
+    const remitente = ctx.from?.first_name || ctx.from?.username || "Usuario";
+
+    console.log(`[INFO] /id consultado en "${chatTitle}" (ID: ${chatId}) por ${remitente} (ID: ${userId})`);
+
     await ctx.reply(
-      `🆔 *Información de IDs:*\n\n` +
-        `▪️ *ID de este Chat/Grupo:* \`${chatId}\`\n` +
-        `▪️ *Tipo de chat:* \`${tipo}\`\n` +
-        `▪️ *Tu ID de Usuario:* \`${userId}\``,
+      `👥 *IDENTIFICACIÓN DE ESTE CHAT:*\n\n` +
+        `📛 *Nombre / Grupo:* ${chatTitle}\n` +
+        `🆔 *ID del Chat:* \`${chatId}\`\n` +
+        `🏷️ *Tipo:* ${tipo === "supergroup" || tipo === "group" ? "Grupo de Telegram" : tipo}\n\n` +
+        `👤 *Solicitado por:* ${remitente}\n` +
+        `🆔 *Tu ID Personal:* \`${userId}\`\n\n` +
+        `💡 *Consejo:* Para que este grupo reciba los reportes de corte automáticos, asegúrate de colocar su ID en \`TELEGRAM_REPORT_CHAT_ID\`.`,
       { parse_mode: "Markdown" }
     );
   });
