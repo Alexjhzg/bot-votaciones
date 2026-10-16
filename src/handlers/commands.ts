@@ -41,8 +41,37 @@ export function registrarComandos(bot: Bot): void {
       `▪️ \`/unidad\` — Ver quiénes han reportado por unidad (o \`/unidad <nombre>\`).\n` +
       `▪️ \`/corte\` — Emite los reportes del corte activo para SEGEN e INE por separado.\n` +
       `▪️ \`/deshacer <cédula>\` — Corregir un registro en caso de equivocación.\n` +
+      `▪️ \`/comandos\` — Lista detallada de todos los comandos disponibles.\n` +
       `▪️ \`/recargar\` — Sincronizar y refrescar la nómina desde Google Sheets.\n\n` +
       `_Toda la información se actualiza automáticamente en Google Sheets con su respectivo corte horario._`;
+
+    await ctx.reply(mensaje, { parse_mode: "Markdown" });
+  });
+
+  // Comando /comandos y /menu
+  bot.command(["comandos", "commands", "menu"], async (ctx: Context) => {
+    const remitente = obtenerNombreRemitente(ctx);
+    console.log(`[INFO] Comando /comandos ejecutado por ${remitente}`);
+
+    const mensaje =
+      `🤖 *LISTA COMPLETA DE COMANDOS DEL BOT*\n\n` +
+      `🗳️ *REGISTRO DE PARTICIPACIÓN:*\n` +
+      `▪️ \`<cédula> voto listo\` — Registra el voto (Ej: \`12345678 voto listo\`)\n` +
+      `▪️ \`/deshacer <cédula>\` — Anula un registro en caso de error (Ej: \`/deshacer 12345678\`)\n\n` +
+      `🔍 *CONSULTA DE ELECTORES:*\n` +
+      `▪️ \`<cédula>\` — Consulta rápida de centro y estado (Ej: \`12345678\`)\n` +
+      `▪️ \`/consulta <cédula>\` — Consulta con comando (Ej: \`/consulta 12345678\`)\n\n` +
+      `📊 *REPORTES ELECTORALES:*\n` +
+      `▪️ \`/resumen\` o \`/total\` — Emite los dos reportes por separado (SEGEN e INE)\n` +
+      `▪️ \`/segen\` — Reporte de SEGEN (por Cargos y Totalización)\n` +
+      `▪️ \`/ine\` — Reporte de INE (por Unidad y Cédulas por cada corte)\n` +
+      `▪️ \`/unidad\` — Avance global de quiénes han reportado por unidad\n` +
+      `▪️ \`/unidad <nombre>\` — Lista detallada de quiénes reportaron y quiénes faltan en esa unidad (Ej: \`/unidad seem\` o \`/unidad economica\`)\n` +
+      `▪️ \`/corte\` — Emite los reportes del corte horario activo (8am, 10am, 12pm, 2pm, 4pm, 6pm, 7pm)\n\n` +
+      `⚙️ *SISTEMA Y AYUDA:*\n` +
+      `▪️ \`/comandos\` — Muestra esta lista de comandos\n` +
+      `▪️ \`/start\` o \`/ayuda\` — Mensaje inicial de bienvenida\n` +
+      `▪️ \`/recargar\` o \`/sync\` — Sincroniza nómina en vivo desde Google Sheets`;
 
     await ctx.reply(mensaje, { parse_mode: "Markdown" });
   });

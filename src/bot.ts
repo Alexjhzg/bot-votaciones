@@ -72,6 +72,23 @@ async function arrancar() {
   await bot.start({
     onStart: (botInfo) => {
       console.log(`[INFO] Bot @${botInfo.username} en línea y listo para registrar votos.`);
+      // Configurar menú de comandos nativo en la interfaz de Telegram
+      bot.api
+        .setMyCommands([
+          { command: "comandos", description: "Ver lista completa de comandos" },
+          { command: "resumen", description: "Reportes consolidados SEGEN e INE" },
+          { command: "segen", description: "Reporte de SEGEN (por Cargos)" },
+          { command: "ine", description: "Reporte de INE (por Unidades)" },
+          { command: "unidad", description: "Quiénes han reportado por unidad" },
+          { command: "corte", description: "Avance del corte horario activo" },
+          { command: "consulta", description: "Consultar datos de un elector" },
+          { command: "deshacer", description: "Anular o corregir un voto" },
+          { command: "recargar", description: "Sincronizar nómina desde Google Sheets" },
+          { command: "ayuda", description: "Instrucciones de uso del bot" },
+        ])
+        .then(() => console.log("[INFO] Comandos nativos registrados en Telegram."))
+        .catch((err) => console.error("[WARN] No se pudo registrar setMyCommands:", err));
+
       // Programar los cortes horarios oficiales (8am, 10am, 12pm, 2pm, 4pm, 6pm, 7pm)
       programarCortesHorarios(bot.api);
     },
