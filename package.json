@@ -5,9 +5,9 @@
   "main": "src/bot.ts",
   "type": "module",
   "scripts": {
-    "start": "tsx src/bot.ts",
+    "build": "tsc",
+    "start": "node dist/bot.js",
     "dev": "tsx watch src/bot.ts",
-    "build": "tsc --noEmit",
     "test": "tsx --test"
   },
   "engines": {
@@ -18,11 +18,11 @@
     "dotenv": "^16.4.5",
     "google-auth-library": "^9.11.0",
     "google-spreadsheet": "^4.1.4",
-    "grammy": "^1.27.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.5.4",
+    "grammy": "^1.27.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4"
   }
 }

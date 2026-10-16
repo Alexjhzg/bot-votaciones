@@ -141,8 +141,28 @@ npm run dev
 npm start
 ```
 
----
+## 🌐 Despliegue en la Nube (Render Paso a Paso)
 
-## 🌐 Despliegue en la Nube (Render / Railway / VPS)
+El proyecto incluye un archivo `render.yaml` y un servidor HTTP nativo en el puerto `process.env.PORT` con endpoints `/` y `/healthz` listos para **Render**:
 
-El proyecto incluye un servidor HTTP nativo en el puerto `8080` (o el que defina `process.env.PORT`) con endpoints `/` y `/healthz` que devuelven el estado del servicio y métricas de votación, permitiendo mantener el bot activo 24/7 sin caídas por inactividad.
+### Pasos para desplegar en Render:
+
+1. Ingresa a [Render.com](https://dashboard.render.com/) e inicia sesión con tu cuenta de **GitHub**.
+2. Haz clic en **New +** y selecciona **Web Service**.
+3. Conecta tu repositorio de GitHub: `https://github.com/Alexjhzg/bot-votaciones`.
+4. Render detectará automáticamente el proyecto. Configura:
+   - **Name:** `bot-votaciones`
+   - **Runtime:** `Node`
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `npm start`
+   - **Instance Type:** `Free`
+5. En la sección **Environment Variables** (Variables de Entorno), agrega las siguientes claves:
+   - `TELEGRAM_BOT_TOKEN`: `8873372785:AAEtcD_XL0FSNtjlERLLj8dyZavNkuOMD0o`
+   - `GOOGLE_SPREADSHEET_ID`: `1jRyoEBRm4UjjnPjf_MhLgZk39E1aTu27aTB2r7kw90Y`
+   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: `telegram@telegram-496916.iam.gserviceaccount.com`
+   - `GOOGLE_PRIVATE_KEY`: *(pega tu clave privada completa con saltos de línea)*
+   - `GOOGLE_SHEET_TABS`: `segen,ine`
+   - `APP_TIMEZONE`: `America/Caracas`
+   - `NODE_VERSION`: `20.14.0`
+6. En **Advanced** -> **Health Check Path**, coloca: `/healthz`.
+7. Haz clic en **Create Web Service**. ¡El bot se compilará y quedará funcionando 24/7 en la nube!

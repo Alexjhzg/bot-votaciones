@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: bot-votaciones
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.14.0
+      - key: APP_TIMEZONE
+        value: America/Caracas
+      - key: GOOGLE_SHEET_TABS
+        value: segen,ine
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GOOGLE_SPREADSHEET_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: GOOGLE_PRIVATE_KEY
+        sync: false
