@@ -10,6 +10,8 @@ import {
   formatearReporteCorteINE,
   obtenerReportesSeparados,
   obtenerReportesCorteSeparados,
+  formatearDetalleUnidad,
+  formatearReporteTodasUnidades,
 } from "../src/utils/telegram.js";
 import { VoterRecord, EstadisticasNomina, EstadisticasNominaIndividual } from "../src/services/voterService.js";
 
@@ -187,4 +189,67 @@ test("obtenerReportesSeparados devuelve 2 reportes distintos con reglas de SEGEN
   assert.equal(reportes[1].nomina, "INE");
   assert.match(reportes[1].mensaje, /UNIDAD/);
   assert.match(reportes[1].mensaje, /Cédulas:/);
+});
+
+test("formatearDetalleUnidad desglosa personas que ya votaron y pendientes", () => {
+  const detalle = {
+    nombre: "Económica",
+    total: 2,
+    votaron: 1,
+    pendientes: 1,
+    porcentaje: "50.0%",
+    electoresVotaron: [
+      {
+        ...mockVoter,
+        nombre: "Juan Silva",
+        cedula: "11206771",
+        haVotado: true,
+        corte: "10:00 AM",
+        fechaHoraVoto: "10:15 AM",
+      },
+    ],
+    electoresPendientes: [
+      {
+        ...mockVoter,
+        nombre: "Pedro Gómez",
+        cedula: "14205119",
+        haVotado: false,
+      },
+    ],
+  };
+
+  const texto = formatearDetalleUnidad(detalle);
+  assert.match(texto, /Económica/);
+  assert.match(texto, /YA REPORTARON \(1\)/);
+  assert.match(texto, /Juan Silva/);
+  assert.match(texto, /11\.206\.771/);
+  assert.match(texto, /PENDIENTES POR REPORTAR \(1\)/);
+  assert.match(texto, /Pedro Gómez/);
+  assert.match(texto, /14\.205\.119/);
+});
+
+test("formatearReporteTodasUnidades lista avance por unidad", () => {
+  const lista = [
+    {
+      nombre: "Económica",
+      total: 8,
+      votaron: 2,
+      pendientes: 6,
+      porcentaje: "25.0%",
+      electoresVotaron: [
+        {
+          ...mockVoter,
+          nombre: "Juan Silva",
+          cedula: "11206771",
+          haVotado: true,
+        },
+      ],
+      electoresPendientes: [],
+    },
+  ];
+
+  const texto = formatearReporteTodasUnidades(lista);
+  assert.match(texto, /REPORTE DE PARTICIPACIÓN POR UNIDADES/);
+  assert.match(texto, /Económica/);
+  assert.match(texto, /Juan/);
 });

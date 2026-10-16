@@ -359,3 +359,83 @@ export function obtenerReportesCorteSeparados(
     };
   });
 }
+
+// =========================================================================
+// COMANDO Y REPORTES ESPECÍFICOS POR UNIDAD
+// =========================================================================
+
+export interface DetalleUnidadData {
+  nombre: string;
+  total: number;
+  votaron: number;
+  pendientes: number;
+  porcentaje: string;
+  electoresVotaron: VoterRecord[];
+  electoresPendientes: VoterRecord[];
+}
+
+/**
+ * Genera el reporte detallado para una unidad específica, indicando con nombre y cédula
+ * quiénes ya reportaron su voto y quiénes siguen pendientes.
+ */
+export function formatearDetalleUnidad(u: DetalleUnidadData): string {
+  let msg = `🏛️ *REPORTE DETALLADO POR UNIDAD*\n`;
+  msg += `📍 *Unidad:* ${u.nombre}\n\n`;
+
+  msg += `📊 *ESTADO DE PARTICIPACIÓN:*\n`;
+  msg += `👥 *Total en la Unidad:* ${u.total} personas\n`;
+  msg += `✅ *Han Reportado:* ${u.votaron} (${u.porcentaje})\n`;
+  msg += `⏳ *Pendientes:* ${u.pendientes}\n\n`;
+
+  // 1. Lista de personas que ya votaron
+  if (u.electoresVotaron.length > 0) {
+    msg += `✅ *YA REPORTARON (${u.electoresVotaron.length}):*\n`;
+    for (const v of u.electoresVotaron) {
+      const ci = formatearCedula(v.cedula);
+      const horaInfo = v.fechaHoraVoto ? ` (${v.fechaHoraVoto})` : "";
+      const corteInfo = v.corte ? ` [${v.corte}]` : "";
+      msg += `▪️ ${v.nombre} — \`V-${ci}\`${horaInfo}${corteInfo}\n`;
+    }
+    msg += `\n`;
+  } else {
+    msg += `✅ *YA REPORTARON:* _Ninguno aún_\n\n`;
+  }
+
+  // 2. Lista de personas pendientes por votar
+  if (u.electoresPendientes.length > 0) {
+    msg += `⏳ *PENDIENTES POR REPORTAR (${u.electoresPendientes.length}):*\n`;
+    for (const v of u.electoresPendientes) {
+      const ci = formatearCedula(v.cedula);
+      msg += `▪️ ${v.nombre} — \`V-${ci}\`\n`;
+    }
+  } else {
+    msg += `🎉 *¡100% de participación completada en esta unidad!*`;
+  }
+
+  return msg;
+}
+
+/**
+ * Genera un informe global de quiénes han reportado por unidad en todas las unidades.
+ */
+export function formatearReporteTodasUnidades(unidades: DetalleUnidadData[]): string {
+  let msg = `🏛️ *REPORTE DE PARTICIPACIÓN POR UNIDADES (INE)*\n\n`;
+
+  for (const u of unidades) {
+    msg += `🔹 *${u.nombre}* (${u.votaron}/${u.total} — ${u.porcentaje})\n`;
+    if (u.electoresVotaron.length > 0) {
+      const lista = u.electoresVotaron
+        .map((v) => `${v.nombre.split(" ")[0]} (V-${formatearCedula(v.cedula)})`)
+        .join(", ");
+      msg += `   ↳ ✅ _Reportaron:_ ${lista}\n`;
+    } else {
+      msg += `   ↳ ⏳ _Sin reportes aún_\n`;
+    }
+    msg += `\n`;
+  }
+
+  msg += `💡 _Para ver la lista completa con pendientes de una unidad, usa:_\n`;
+  msg += `👉 \`/unidad <nombre de la unidad>\` (Ej: \`/unidad economica\` o \`/unidad seem\`)`;
+
+  return msg;
+}

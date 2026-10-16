@@ -454,6 +454,99 @@ class VoterService {
     }
     return null;
   }
+
+  /**
+   * Obtiene el detalle de electores que han reportado por unidad y quiénes faltan.
+   * Si se especifica un filtro (ej: "economica", "seem"), busca esa unidad.
+   * Si no, devuelve todas las unidades ordenadas.
+   */
+  public obtenerDetallePorUnidad(filtro?: string): {
+    unidades: Array<{
+      nombre: string;
+      total: number;
+      votaron: number;
+      pendientes: number;
+      porcentaje: string;
+      electoresVotaron: VoterRecord[];
+      electoresPendientes: VoterRecord[];
+    }>;
+    unidadEspecifica?: {
+      nombre: string;
+      total: number;
+      votaron: number;
+      pendientes: number;
+      porcentaje: string;
+      electoresVotaron: VoterRecord[];
+      electoresPendientes: VoterRecord[];
+    };
+    encontrada: boolean;
+  } {
+    const mapaUnidades: Map<string, {
+      nombre: string;
+      total: number;
+      votaron: number;
+      pendientes: number;
+      porcentaje: string;
+      electoresVotaron: VoterRecord[];
+      electoresPendientes: VoterRecord[];
+    }> = new Map();
+
+    for (const voter of this.voters.values()) {
+      const u = voter.unidad && voter.unidad !== "Sin unidad" ? voter.unidad.trim() : null;
+      if (!u) continue;
+
+      if (!mapaUnidades.has(u)) {
+        mapaUnidades.set(u, {
+          nombre: u,
+          total: 0,
+          votaron: 0,
+          pendientes: 0,
+          porcentaje: "0.0%",
+          electoresVotaron: [],
+          electoresPendientes: [],
+        });
+      }
+
+      const item = mapaUnidades.get(u)!;
+      item.total++;
+      if (voter.haVotado) {
+        item.votaron++;
+        item.electoresVotaron.push(voter);
+      } else {
+        item.pendientes++;
+        item.electoresPendientes.push(voter);
+      }
+    }
+
+    const unidades = Array.from(mapaUnidades.values()).map((item) => {
+      item.porcentaje =
+        item.total > 0 ? `${((item.votaron / item.total) * 100).toFixed(1)}%` : "0.0%";
+      return item;
+    });
+
+    unidades.sort((a, b) => b.total - a.total);
+
+    if (filtro && filtro.trim()) {
+      const buscado = normalizarTexto(filtro);
+      const coincidencia = unidades.find((u) => normalizarTexto(u.nombre).includes(buscado));
+      if (coincidencia) {
+        return {
+          unidades,
+          unidadEspecifica: coincidencia,
+          encontrada: true,
+        };
+      }
+      return {
+        unidades,
+        encontrada: false,
+      };
+    }
+
+    return {
+      unidades,
+      encontrada: true,
+    };
+  }
 }
 
 export const voterService = new VoterService();

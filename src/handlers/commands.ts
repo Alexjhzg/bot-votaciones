@@ -7,6 +7,8 @@ import {
   formatearReporteINE,
   obtenerReportesSeparados,
   obtenerReportesCorteSeparados,
+  formatearDetalleUnidad,
+  formatearReporteTodasUnidades,
 } from "../utils/telegram.js";
 import { extraerCedulas, formatearCedula, obtenerCorteActivoActual } from "../utils/parser.js";
 import { config } from "../config/index.js";
@@ -36,6 +38,7 @@ export function registrarComandos(bot: Bot): void {
       `▪️ \`/resumen\` o \`/total\` — Emite los dos reportes por separado (SEGEN e INE).\n` +
       `▪️ \`/segen\` — Emite exclusivamente el reporte de SEGEN.\n` +
       `▪️ \`/ine\` — Emite exclusivamente el reporte de INE.\n` +
+      `▪️ \`/unidad\` — Ver quiénes han reportado por unidad (o \`/unidad <nombre>\`).\n` +
       `▪️ \`/corte\` — Emite los reportes del corte activo para SEGEN e INE por separado.\n` +
       `▪️ \`/deshacer <cédula>\` — Corregir un registro en caso de equivocación.\n` +
       `▪️ \`/recargar\` — Sincronizar y refrescar la nómina desde Google Sheets.\n\n` +
@@ -221,6 +224,49 @@ export function registrarComandos(bot: Bot): void {
     } catch (err) {
       console.error("[ERROR] Falló al recargar nómina:", err);
       await ctx.reply("❌ Ocurrió un error al recargar los datos desde Google Sheets.");
+    }
+  });
+
+  // Comando /unidad y /unidades (para saber quiénes han reportado por unidad)
+  bot.command(["unidad", "unidades"], async (ctx: Context) => {
+    try {
+      const remitente = obtenerNombreRemitente(ctx);
+      const textoCompleto = ctx.message?.text || "";
+      const partes = textoCompleto.split(/\s+/).slice(1);
+      const filtro = partes.join(" ").trim();
+
+      const resultado = voterService.obtenerDetallePorUnidad(filtro || undefined);
+
+      if (filtro) {
+        if (resultado.encontrada && resultado.unidadEspecifica) {
+          console.log(`[INFO] Consulta de unidad "${filtro}" ejecutada por ${remitente}`);
+          await ctx.reply(formatearDetalleUnidad(resultado.unidadEspecifica), {
+            parse_mode: "Markdown",
+          });
+          return;
+        }
+
+        // Si no encontró coincidencia con el filtro especificado
+        const listaDisponibles = resultado.unidades
+          .map((u) => `▪️ \`/unidad ${u.nombre}\``)
+          .join("\n");
+
+        await ctx.reply(
+          `⚠️ *Unidad no encontrada*\n\nNo se encontró ninguna unidad que coincida con "*${filtro}*".\n\n` +
+            `🏛️ *Unidades disponibles:*\n${listaDisponibles}`,
+          { parse_mode: "Markdown" }
+        );
+        return;
+      }
+
+      // Si no especificó unidad, muestra el reporte general de todas las unidades
+      console.log(`[INFO] Reporte general de unidades ejecutado por ${remitente}`);
+      await ctx.reply(formatearReporteTodasUnidades(resultado.unidades), {
+        parse_mode: "Markdown",
+      });
+    } catch (err) {
+      console.error("[ERROR] Error en comando /unidad:", err);
+      await ctx.reply("❌ Ocurrió un error al generar el reporte de unidades.");
     }
   });
 }
