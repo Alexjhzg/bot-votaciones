@@ -34,6 +34,7 @@ let docInstance: GoogleSpreadsheet | null = null;
 export async function obtenerDocumento(): Promise<GoogleSpreadsheet> {
   if (docInstance) return docInstance;
 
+  console.log(`[INFO] Autenticando con cuenta de servicio: ${config.google.serviceAccountEmail}`);
   const auth = new JWT({
     email: config.google.serviceAccountEmail,
     key: config.google.privateKey,

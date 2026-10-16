@@ -78,8 +78,8 @@ export const config = {
       : [],
   },
   google: {
-    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
-    serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!,
+    spreadsheetId: (process.env.GOOGLE_SPREADSHEET_ID || "").trim(),
+    serviceAccountEmail: (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "").trim(),
     privateKey: sanitizarPrivateKey(process.env.GOOGLE_PRIVATE_KEY),
     // Pestañas específicas separadas por coma, o vacío para leer todas las relevantes
     sheetTabs: process.env.GOOGLE_SHEET_TABS
