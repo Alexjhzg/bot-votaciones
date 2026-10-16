@@ -1,0 +1,28 @@
+{
+  "name": "bot-votaciones",
+  "version": "1.0.0",
+  "description": "Bot simplificado de Telegram para consulta de votaciones y registro de 'voto listo' con Google Sheets",
+  "main": "src/bot.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/bot.ts",
+    "dev": "tsx watch src/bot.ts",
+    "build": "tsc --noEmit",
+    "test": "tsx --test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "croner": "^10.0.1",
+    "dotenv": "^16.4.5",
+    "google-auth-library": "^9.11.0",
+    "google-spreadsheet": "^4.1.4",
+    "grammy": "^1.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
