@@ -39,6 +39,16 @@ const server = http.createServer((req, res) => {
   }
 });
 
+server.on("error", (e: any) => {
+  if (e.code === "EADDRINUSE") {
+    const nextPort = config.app.port + 1;
+    console.warn(`[WARN] Puerto ${config.app.port} ocupado. Probando en puerto ${nextPort}...`);
+    server.listen(nextPort, "0.0.0.0");
+  } else {
+    console.error("[ERROR HTTP SERVER]:", e);
+  }
+});
+
 server.listen(config.app.port, "0.0.0.0", () => {
   console.log(`[INFO] Servidor HTTP de salud escuchando en el puerto ${config.app.port}`);
 });
