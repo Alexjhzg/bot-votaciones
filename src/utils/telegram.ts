@@ -36,12 +36,6 @@ export function formatearTarjetaElector(voter: VoterRecord): string {
   if (voter.unidad && voter.unidad !== "Sin unidad") {
     card += `🏛️ *Unidad:* ${voter.unidad}\n`;
   }
-  if (voter.centro) {
-    card += `🏫 *Centro de Votación:* ${voter.centro}\n`;
-  }
-  if (voter.mesa) {
-    card += `🗳️ *Mesa:* ${voter.mesa}\n`;
-  }
   if (voter.municipio || voter.parroquia) {
     const loc = [voter.municipio, voter.parroquia].filter(Boolean).join(" - ");
     card += `📍 *Ubicación:* ${loc}\n`;
@@ -71,12 +65,6 @@ export function formatearConfirmacionVoto(voter: VoterRecord): string {
   }
   if (voter.unidad && voter.unidad !== "Sin unidad") {
     msg += `🏛️ *Unidad:* ${voter.unidad}\n`;
-  }
-  if (voter.centro) {
-    msg += `🏫 *Centro:* ${voter.centro}\n`;
-  }
-  if (voter.mesa) {
-    msg += `🗳️ *Mesa:* ${voter.mesa}\n`;
   }
 
   if (voter.corte) {

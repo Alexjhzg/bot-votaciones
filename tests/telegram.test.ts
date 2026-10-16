@@ -41,7 +41,8 @@ test("formatearTarjetaElector muestra estado pendiente, cargo y unidad", () => {
   assert.match(card, /Directora General/);
   assert.match(card, /Despacho/);
   assert.match(card, /PENDIENTE POR VOTAR/);
-  assert.match(card, /E\.B\. República de Venezuela/);
+  assert.doesNotMatch(card, /Centro de Votación/);
+  assert.doesNotMatch(card, /Mesa/);
 });
 
 test("formatearTarjetaElector muestra estado ya votó", () => {
@@ -70,6 +71,8 @@ test("formatearConfirmacionVoto incluye datos clave y corte", () => {
   assert.match(msg, /V-27\.334\.492/);
   assert.match(msg, /10:00 AM/);
   assert.match(msg, /09:15 AM/);
+  assert.doesNotMatch(msg, /Centro/);
+  assert.doesNotMatch(msg, /Mesa/);
 });
 
 test("formatearAlertaYaVoto previene duplicados", () => {
