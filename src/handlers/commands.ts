@@ -70,6 +70,7 @@ export function registrarComandos(bot: Bot): void {
       `▪️ \`/corte\` — Emite los reportes del corte horario activo (8am, 10am, 12pm, 2pm, 4pm, 6pm, 7pm)\n\n` +
       `⚙️ *SISTEMA Y AYUDA:*\n` +
       `▪️ \`/comandos\` — Muestra esta lista de comandos\n` +
+      `▪️ \`/id\` — Muestra el ID de este grupo o de tu usuario\n` +
       `▪️ \`/start\` o \`/ayuda\` — Mensaje inicial de bienvenida\n` +
       `▪️ \`/recargar\` o \`/sync\` — Sincroniza nómina en vivo desde Google Sheets`;
 
@@ -297,5 +298,19 @@ export function registrarComandos(bot: Bot): void {
       console.error("[ERROR] Error en comando /unidad:", err);
       await ctx.reply("❌ Ocurrió un error al generar el reporte de unidades.");
     }
+  });
+
+  // Comando /id (para conocer el ID del chat grupal o del usuario)
+  bot.command("id", async (ctx: Context) => {
+    const chatId = ctx.chat?.id;
+    const userId = ctx.from?.id;
+    const tipo = ctx.chat?.type;
+    await ctx.reply(
+      `🆔 *Información de IDs:*\n\n` +
+        `▪️ *ID de este Chat/Grupo:* \`${chatId}\`\n` +
+        `▪️ *Tipo de chat:* \`${tipo}\`\n` +
+        `▪️ *Tu ID de Usuario:* \`${userId}\``,
+      { parse_mode: "Markdown" }
+    );
   });
 }
