@@ -4,6 +4,7 @@ import {
   limpiarCedula,
   formatearCedula,
   normalizarTexto,
+  normalizarCargo,
   obtenerFechaHoraActual,
   determinarCortePorHora,
   obtenerCorteActivoActual,
@@ -115,6 +116,7 @@ class VoterService {
           const rawCargo = mapping.cargoKey
             ? String(row.get(mapping.cargoKey) || "").trim()
             : "";
+          const cargoFinal = normalizarCargo(rawCargo);
           const rawUnidad = mapping.unidadKey
             ? String(row.get(mapping.unidadKey) || "").trim()
             : "";
@@ -150,7 +152,7 @@ class VoterService {
             cedula: cedulaLimpia,
             nombre: rawNombre || "Sin nombre registrado",
             nomina: nominaFinal,
-            cargo: rawCargo || "Sin cargo",
+            cargo: cargoFinal,
             unidad: rawUnidad || "Sin unidad",
             centro: rawCentro,
             mesa: rawMesa,
@@ -351,7 +353,7 @@ class VoterService {
       porNomina[nom].total++;
 
       // Agrupación por Cargo (SEGEN)
-      const cargo = voter.cargo || "Sin cargo";
+      const cargo = normalizarCargo(voter.cargo || "Sin cargo");
       if (!porNomina[nom].porCargo[cargo]) {
         porNomina[nom].porCargo[cargo] = {
           nombre: cargo,

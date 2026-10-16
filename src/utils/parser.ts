@@ -27,6 +27,19 @@ export function normalizarTexto(texto: string): string {
 }
 
 /**
+ * Normaliza los cargos homologando variantes equivalentes.
+ * "SUPERVISOR DE NODO - AMBITOS INDUSTRIALES" y "SUPERVISOR DE NODO" son lo mismo.
+ */
+export function normalizarCargo(cargo: string): string {
+  if (!cargo) return "Sin cargo";
+  const norm = normalizarTexto(cargo);
+  if (norm.includes("supervisor de nodo")) {
+    return "SUPERVISOR DE NODO";
+  }
+  return cargo.trim();
+}
+
+/**
  * Limpia un número de cédula extrayendo solo los dígitos numéricos.
  * Ejemplos: "V-27.334.492" -> "27334492", "27334492" -> "27334492"
  */
