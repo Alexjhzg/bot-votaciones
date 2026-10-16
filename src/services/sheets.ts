@@ -7,6 +7,8 @@ export interface HeaderMapping {
   cedulaKey: string;
   nombreKey: string;
   nominaKey?: string;
+  cargoKey?: string;
+  unidadKey?: string;
   centroKey?: string;
   mesaKey?: string;
   parroquiaKey?: string;
@@ -96,6 +98,26 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
     /^ine$/i,
   ]);
 
+  const cargoKey = buscarColumna([
+    /^cargo$/i,
+    /^cargos$/i,
+    /^puesto$/i,
+    /^funcion$/i,
+    /^rol$/i,
+    /cargo/i,
+  ]);
+
+  const unidadKey = buscarColumna([
+    /^unidad$/i,
+    /^unidades$/i,
+    /unidad.*admin/i,
+    /^gerencia$/i,
+    /^departamento$/i,
+    /^division$/i,
+    /^area$/i,
+    /unidad/i,
+  ]);
+
   const centroKey = buscarColumna([
     /^centro$/i,
     /centro.*votacion/i,
@@ -152,6 +174,8 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
     cedulaKey,
     nombreKey,
     nominaKey,
+    cargoKey,
+    unidadKey,
     centroKey,
     mesaKey,
     parroquiaKey,

@@ -1,6 +1,6 @@
 import { Context } from "grammy";
 import { VoterRecord, EstadisticasNomina, EstadisticasNominaIndividual } from "../services/voterService.js";
-import { formatearCedula } from "./parser.js";
+import { formatearCedula, normalizarTexto } from "./parser.js";
 
 /**
  * Obtiene el nombre del usuario o mención de Telegram para auditoría y logs.
@@ -30,6 +30,12 @@ export function formatearTarjetaElector(voter: VoterRecord): string {
   card += `🆔 *Cédula:* V-${ciFormat}\n`;
   card += `🏢 *Nómina / Institución:* ${voter.nomina}\n`;
 
+  if (voter.cargo && voter.cargo !== "Sin cargo") {
+    card += `💼 *Cargo:* ${voter.cargo}\n`;
+  }
+  if (voter.unidad && voter.unidad !== "Sin unidad") {
+    card += `🏛️ *Unidad:* ${voter.unidad}\n`;
+  }
   if (voter.centro) {
     card += `🏫 *Centro de Votación:* ${voter.centro}\n`;
   }
@@ -60,6 +66,12 @@ export function formatearConfirmacionVoto(voter: VoterRecord): string {
   msg += `🆔 *Cédula:* V-${ciFormat}\n`;
   msg += `🏢 *Nómina:* ${voter.nomina}\n`;
 
+  if (voter.cargo && voter.cargo !== "Sin cargo") {
+    msg += `💼 *Cargo:* ${voter.cargo}\n`;
+  }
+  if (voter.unidad && voter.unidad !== "Sin unidad") {
+    msg += `🏛️ *Unidad:* ${voter.unidad}\n`;
+  }
   if (voter.centro) {
     msg += `🏫 *Centro:* ${voter.centro}\n`;
   }
@@ -103,21 +115,51 @@ export function formatearAlertaYaVoto(
 }
 
 /**
- * Genera el reporte individual exclusivo para una nómina (SEGEN o INE).
+ * Formatea una lista de cédulas con separación limpia para Telegram.
  */
-export function formatearReporteNomina(
+function formatearListaCedulas(cedulas: string[], limiteMax: number = 35): string {
+  if (!cedulas || cedulas.length === 0) return "_Ninguna_";
+  const mostradas = cedulas.slice(0, limiteMax).map((c) => `V-${formatearCedula(c)}`);
+  let texto = mostradas.join(", ");
+  if (cedulas.length > limiteMax) {
+    texto += ` _(... y ${cedulas.length - limiteMax} más)_`;
+  }
+  return texto;
+}
+
+// =========================================================================
+// REPORTES ESPECÍFICOS PARA SEGEN (POR CARGOS Y TOTALIZACIÓN)
+// =========================================================================
+
+/**
+ * Reporte completo para SEGEN: Desglose por CARGOS y TOTALIZACIÓN general.
+ */
+export function formatearReporteSEGEN(
   stats: EstadisticasNominaIndividual,
   corteActivo: string
 ): string {
-  let msg = `📊 *REPORTE DE PARTICIPACIÓN — NÓMINA ${stats.nomina}*\n`;
+  let msg = `📊 *REPORTE DE PARTICIPACIÓN — NÓMINA SEGEN*\n`;
   msg += `🕒 *Corte Activo:* ${corteActivo}\n\n`;
 
-  msg += `👥 *Padrón ${stats.nomina}:* ${stats.total.toLocaleString("es-VE")} electores\n`;
-  msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
-  msg += `⏳ *Pendientes por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n\n`;
+  // 1. Totalización General
+  msg += `👥 *TOTALIZACIÓN GENERAL SEGEN:*\n`;
+  msg += `▪️ *Padrón Total:* ${stats.total.toLocaleString("es-VE")} electores\n`;
+  msg += `▪️ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
+  msg += `▪️ *Pendientes por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n\n`;
 
+  // 2. Desglose por Cargos
+  const cargos = Object.values(stats.porCargo || {}).sort((a, b) => b.total - a.total);
+  if (cargos.length > 0) {
+    msg += `💼 *PARTICIPACIÓN POR CARGOS:*\n`;
+    for (const c of cargos) {
+      msg += `▪️ *${c.nombre}:* ${c.votaron}/${c.total} (${c.porcentaje}) — Faltan: ${c.pendientes}\n`;
+    }
+    msg += `\n`;
+  }
+
+  // 3. Avance por Cortes Horarios
   if (stats.porCorte && Object.keys(stats.porCorte).length > 0) {
-    msg += `⏰ *Avance por Cortes Horarios (${stats.nomina}):*\n`;
+    msg += `⏰ *Avance por Cortes Horarios (SEGEN):*\n`;
     for (const [corte, cantidad] of Object.entries(stats.porCorte)) {
       if (cantidad > 0) {
         msg += `▪️ *${corte}:* ${cantidad} votos\n`;
@@ -129,27 +171,117 @@ export function formatearReporteNomina(
 }
 
 /**
- * Genera el reporte de corte horario oficial exclusivo para una nómina (SEGEN o INE).
+ * Notificación oficial de corte para SEGEN: Totalización y Cargos.
  */
-export function formatearReporteCorteNomina(
+export function formatearReporteCorteSEGEN(
   corteEtiqueta: string,
   stats: EstadisticasNominaIndividual
 ): string {
   let msg = `🔔 *NOTIFICACIÓN OFICIAL — CORTE DE LAS ${corteEtiqueta}*\n`;
-  msg += `🏢 *NÓMINA ${stats.nomina}*\n\n`;
-
-  msg += `👥 *Padrón Total:* ${stats.total.toLocaleString("es-VE")}\n`;
-  msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
-  msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n\n`;
+  msg += `🏢 *NÓMINA SEGEN*\n\n`;
 
   const votosEnEsteCorte = stats.porCorte[corteEtiqueta] || 0;
-  msg += `🕒 *Votos recibidos en el bloque de las ${corteEtiqueta}:* ${votosEnEsteCorte}\n`;
+
+  msg += `📊 *TOTALIZACIÓN SEGEN:*\n`;
+  msg += `👥 *Padrón Total:* ${stats.total.toLocaleString("es-VE")}\n`;
+  msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
+  msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n`;
+  msg += `🕒 *Votos recibidos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
+
+  const cargos = Object.values(stats.porCargo || {}).sort((a, b) => b.total - a.total);
+  if (cargos.length > 0) {
+    msg += `💼 *Avance por Cargos:*\n`;
+    for (const c of cargos) {
+      msg += `▪️ *${c.nombre}:* ${c.votaron}/${c.total} (${c.porcentaje})\n`;
+    }
+  }
+
+  return msg;
+}
+
+// =========================================================================
+// REPORTES ESPECÍFICOS PARA INE (UNIDADES, CÉDULAS Y CORTES)
+// =========================================================================
+
+/**
+ * Reporte completo para INE: Desglose por UNIDAD y CÉDULAS por cada corte.
+ */
+export function formatearReporteINE(
+  stats: EstadisticasNominaIndividual,
+  corteActivo: string
+): string {
+  let msg = `📊 *REPORTE DE PARTICIPACIÓN — NÓMINA INE*\n`;
+  msg += `🕒 *Corte Activo:* ${corteActivo}\n\n`;
+
+  // 1. Totalización General
+  msg += `👥 *TOTALIZACIÓN GENERAL INE:*\n`;
+  msg += `▪️ *Padrón Total:* ${stats.total.toLocaleString("es-VE")} electores\n`;
+  msg += `▪️ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
+  msg += `▪️ *Pendientes por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n\n`;
+
+  // 2. Desglose por Unidad
+  const unidades = Object.values(stats.porUnidad || {}).sort((a, b) => b.total - a.total);
+  if (unidades.length > 0) {
+    msg += `🏛️ *PARTICIPACIÓN POR UNIDAD:*\n`;
+    for (const u of unidades) {
+      msg += `▪️ *${u.nombre}:* ${u.votaron}/${u.total} (${u.porcentaje}) — Faltan: ${u.pendientes}\n`;
+    }
+    msg += `\n`;
+  }
+
+  // 3. Desglose y Cédulas por cada corte
+  if (stats.porCorte && Object.keys(stats.porCorte).length > 0) {
+    msg += `⏰ *DETALLE Y CÉDULAS POR CADA CORTE (INE):*\n`;
+    for (const [corte, cantidad] of Object.entries(stats.porCorte)) {
+      if (cantidad > 0) {
+        const cedulas = stats.cedulasPorCorte[corte] || [];
+        msg += `▪️ *${corte}:* ${cantidad} votos\n`;
+        msg += `  ↳ _Cédulas:_ ${formatearListaCedulas(cedulas, 25)}\n`;
+      }
+    }
+  }
 
   return msg;
 }
 
 /**
- * Devuelve la lista de reportes por separado para cada nómina (SEGEN primero, INE después).
+ * Notificación oficial de corte para INE: Totalización, Unidades y Cédulas de este corte.
+ */
+export function formatearReporteCorteINE(
+  corteEtiqueta: string,
+  stats: EstadisticasNominaIndividual
+): string {
+  let msg = `🔔 *NOTIFICACIÓN OFICIAL — CORTE DE LAS ${corteEtiqueta}*\n`;
+  msg += `🏢 *NÓMINA INE*\n\n`;
+
+  const votosEnEsteCorte = stats.porCorte[corteEtiqueta] || 0;
+  const cedulasEsteCorte = stats.cedulasPorCorte[corteEtiqueta] || [];
+
+  msg += `📊 *TOTALIZACIÓN INE:*\n`;
+  msg += `👥 *Padrón Total:* ${stats.total.toLocaleString("es-VE")}\n`;
+  msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
+  msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n`;
+  msg += `🕒 *Votos recibidos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
+
+  const unidades = Object.values(stats.porUnidad || {}).sort((a, b) => b.total - a.total);
+  if (unidades.length > 0) {
+    msg += `🏛️ *Avance por Unidad:*\n`;
+    for (const u of unidades) {
+      msg += `▪️ *${u.nombre}:* ${u.votaron}/${u.total} (${u.porcentaje})\n`;
+    }
+    msg += `\n`;
+  }
+
+  msg += `🆔 *Cédulas que votaron en el corte de las ${corteEtiqueta} (${cedulasEsteCorte.length}):*\n`;
+  msg += `${formatearListaCedulas(cedulasEsteCorte, 35)}\n`;
+
+  return msg;
+}
+
+/**
+ * Devuelve la lista de reportes por separado aplicando las reglas específicas:
+ * - SEGEN: por cargos y totalización.
+ * - INE: por unidad, cédulas y por cada corte.
  */
 export function obtenerReportesSeparados(stats: EstadisticasNomina): { nomina: string; mensaje: string }[] {
   const nominasOrdenadas = Object.keys(stats.porNomina).sort((a, b) => {
@@ -162,15 +294,34 @@ export function obtenerReportesSeparados(stats: EstadisticasNomina): { nomina: s
 
   return nominasOrdenadas.map((nom) => {
     const item = stats.porNomina[nom];
+    const norm = normalizarTexto(nom);
+
+    if (norm.includes("segen")) {
+      return {
+        nomina: nom,
+        mensaje: formatearReporteSEGEN(item, stats.corteActivo),
+      };
+    }
+
+    if (norm.includes("ine")) {
+      return {
+        nomina: nom,
+        mensaje: formatearReporteINE(item, stats.corteActivo),
+      };
+    }
+
+    // Fallback general para cualquier otra nómina
     return {
       nomina: nom,
-      mensaje: formatearReporteNomina(item, stats.corteActivo),
+      mensaje: formatearReporteSEGEN(item, stats.corteActivo),
     };
   });
 }
 
 /**
- * Devuelve la lista de reportes de corte oficial por separado para cada nómina (SEGEN primero, INE después).
+ * Devuelve la lista de notificaciones de corte por separado aplicando las reglas específicas:
+ * - SEGEN: totalización y cargos.
+ * - INE: totalización, unidad y cédulas del corte.
  */
 export function obtenerReportesCorteSeparados(
   corteEtiqueta: string,
@@ -186,9 +337,25 @@ export function obtenerReportesCorteSeparados(
 
   return nominasOrdenadas.map((nom) => {
     const item = stats.porNomina[nom];
+    const norm = normalizarTexto(nom);
+
+    if (norm.includes("segen")) {
+      return {
+        nomina: nom,
+        mensaje: formatearReporteCorteSEGEN(corteEtiqueta, item),
+      };
+    }
+
+    if (norm.includes("ine")) {
+      return {
+        nomina: nom,
+        mensaje: formatearReporteCorteINE(corteEtiqueta, item),
+      };
+    }
+
     return {
       nomina: nom,
-      mensaje: formatearReporteCorteNomina(corteEtiqueta, item),
+      mensaje: formatearReporteCorteSEGEN(corteEtiqueta, item),
     };
   });
 }

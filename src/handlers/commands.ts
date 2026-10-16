@@ -3,7 +3,8 @@ import { voterService } from "../services/voterService.js";
 import {
   obtenerNombreRemitente,
   formatearTarjetaElector,
-  formatearReporteNomina,
+  formatearReporteSEGEN,
+  formatearReporteINE,
   obtenerReportesSeparados,
   obtenerReportesCorteSeparados,
 } from "../utils/telegram.js";
@@ -80,7 +81,7 @@ export function registrarComandos(bot: Bot): void {
         return;
       }
 
-      const msg = formatearReporteNomina(statsSegen, stats.corteActivo);
+      const msg = formatearReporteSEGEN(statsSegen, stats.corteActivo);
       await ctx.reply(msg, { parse_mode: "Markdown" });
     } catch (err) {
       console.error("[ERROR] Falló al emitir reporte SEGEN:", err);
@@ -101,7 +102,7 @@ export function registrarComandos(bot: Bot): void {
         return;
       }
 
-      const msg = formatearReporteNomina(statsIne, stats.corteActivo);
+      const msg = formatearReporteINE(statsIne, stats.corteActivo);
       await ctx.reply(msg, { parse_mode: "Markdown" });
     } catch (err) {
       console.error("[ERROR] Falló al emitir reporte INE:", err);

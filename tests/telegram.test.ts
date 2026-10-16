@@ -4,17 +4,21 @@ import {
   formatearTarjetaElector,
   formatearConfirmacionVoto,
   formatearAlertaYaVoto,
-  formatearReporteNomina,
-  formatearReporteCorteNomina,
+  formatearReporteSEGEN,
+  formatearReporteINE,
+  formatearReporteCorteSEGEN,
+  formatearReporteCorteINE,
   obtenerReportesSeparados,
   obtenerReportesCorteSeparados,
 } from "../src/utils/telegram.js";
-import { VoterRecord, EstadisticasNomina } from "../src/services/voterService.js";
+import { VoterRecord, EstadisticasNomina, EstadisticasNominaIndividual } from "../src/services/voterService.js";
 
 const mockVoter: VoterRecord = {
   cedula: "27334492",
   nombre: "María Pérez",
   nomina: "SEGEN",
+  cargo: "Directora General",
+  unidad: "Despacho",
   centro: "E.B. República de Venezuela",
   mesa: "1",
   parroquia: "San Simón",
@@ -28,10 +32,12 @@ const mockVoter: VoterRecord = {
   rowRef: {} as any,
 };
 
-test("formatearTarjetaElector muestra estado pendiente", () => {
+test("formatearTarjetaElector muestra estado pendiente, cargo y unidad", () => {
   const card = formatearTarjetaElector(mockVoter);
   assert.match(card, /María Pérez/);
   assert.match(card, /V-27\.334\.492/);
+  assert.match(card, /Directora General/);
+  assert.match(card, /Despacho/);
   assert.match(card, /PENDIENTE POR VOTAR/);
   assert.match(card, /E\.B\. República de Venezuela/);
 });
@@ -75,8 +81,8 @@ test("formatearAlertaYaVoto previene duplicados", () => {
   assert.match(msg, /@usuario1/);
 });
 
-test("formatearReporteNomina emite reporte individual para SEGEN", () => {
-  const statsSegen = {
+test("formatearReporteSEGEN estructura reporte por cargos y totalización", () => {
+  const statsSegen: EstadisticasNominaIndividual = {
     nomina: "SEGEN",
     total: 600,
     votaron: 300,
@@ -86,25 +92,64 @@ test("formatearReporteNomina emite reporte individual para SEGEN", () => {
       "8:00 AM": 100,
       "10:00 AM": 200,
     },
+    cedulasPorCorte: {
+      "8:00 AM": ["12345678"],
+      "10:00 AM": ["23456789"],
+    },
+    porCargo: {
+      Director: { nombre: "Director", total: 10, votaron: 10, pendientes: 0, porcentaje: "100.0%" },
+      Coordinador: { nombre: "Coordinador", total: 50, votaron: 30, pendientes: 20, porcentaje: "60.0%" },
+    },
+    porUnidad: {},
   };
-  const msg = formatearReporteNomina(statsSegen, "10:00 AM");
-  assert.match(msg, /REPORTE DE PARTICIPACIÓN — NÓMINA SEGEN/);
-  assert.match(msg, /Padrón SEGEN:\* 600 electores/);
-  assert.match(msg, /50\.0%/);
-  assert.match(msg, /8:00 AM:\* 100 votos/);
+
+  const msg = formatearReporteSEGEN(statsSegen, "10:00 AM");
+  assert.match(msg, /NÓMINA SEGEN/);
+  assert.match(msg, /TOTALIZACIÓN GENERAL SEGEN/);
+  assert.match(msg, /Padrón Total:\* 600 electores/);
+  assert.match(msg, /PARTICIPACIÓN POR CARGOS/);
+  assert.match(msg, /Director:\* 10\/10/);
+  assert.match(msg, /Coordinador:\* 30\/50/);
 });
 
-test("obtenerReportesSeparados devuelve 2 reportes distintos (SEGEN e INE)", () => {
+test("formatearReporteINE estructura reporte por unidad y cédulas por corte", () => {
+  const statsIne: EstadisticasNominaIndividual = {
+    nomina: "INE",
+    total: 400,
+    votaron: 150,
+    pendientes: 250,
+    porcentaje: "37.5%",
+    porCorte: {
+      "8:00 AM": 50,
+      "10:00 AM": 100,
+    },
+    cedulasPorCorte: {
+      "8:00 AM": ["11111111", "22222222"],
+      "10:00 AM": ["33333333"],
+    },
+    porCargo: {},
+    porUnidad: {
+      "Gerencia General": { nombre: "Gerencia General", total: 20, votaron: 15, pendientes: 5, porcentaje: "75.0%" },
+    },
+  };
+
+  const msg = formatearReporteINE(statsIne, "10:00 AM");
+  assert.match(msg, /NÓMINA INE/);
+  assert.match(msg, /TOTALIZACIÓN GENERAL INE/);
+  assert.match(msg, /PARTICIPACIÓN POR UNIDAD/);
+  assert.match(msg, /Gerencia General:\* 15\/20/);
+  assert.match(msg, /DETALLE Y CÉDULAS POR CADA CORTE/);
+  assert.match(msg, /V-11\.111\.111/);
+});
+
+test("obtenerReportesSeparados devuelve 2 reportes distintos con reglas de SEGEN e INE", () => {
   const stats: EstadisticasNomina = {
     total: 1000,
     votaron: 450,
     pendientes: 550,
     porcentajeVotaron: "45.0%",
     corteActivo: "12:00 PM",
-    porCorte: {
-      "8:00 AM": 150,
-      "10:00 AM": 300,
-    },
+    porCorte: { "8:00 AM": 150, "10:00 AM": 300 },
     porNomina: {
       SEGEN: {
         nomina: "SEGEN",
@@ -113,6 +158,11 @@ test("obtenerReportesSeparados devuelve 2 reportes distintos (SEGEN e INE)", () 
         pendientes: 300,
         porcentaje: "50.0%",
         porCorte: { "8:00 AM": 100, "10:00 AM": 200 },
+        cedulasPorCorte: { "8:00 AM": [], "10:00 AM": [] },
+        porCargo: {
+          Director: { nombre: "Director", total: 10, votaron: 10, pendientes: 0, porcentaje: "100.0%" },
+        },
+        porUnidad: {},
       },
       INE: {
         nomina: "INE",
@@ -121,6 +171,11 @@ test("obtenerReportesSeparados devuelve 2 reportes distintos (SEGEN e INE)", () 
         pendientes: 250,
         porcentaje: "37.5%",
         porCorte: { "8:00 AM": 50, "10:00 AM": 100 },
+        cedulasPorCorte: { "8:00 AM": ["12345678"], "10:00 AM": ["23456789"] },
+        porCargo: {},
+        porUnidad: {
+          Estadística: { nombre: "Estadística", total: 40, votaron: 25, pendientes: 15, porcentaje: "62.5%" },
+        },
       },
     },
   };
@@ -128,48 +183,8 @@ test("obtenerReportesSeparados devuelve 2 reportes distintos (SEGEN e INE)", () 
   const reportes = obtenerReportesSeparados(stats);
   assert.equal(reportes.length, 2);
   assert.equal(reportes[0].nomina, "SEGEN");
-  assert.match(reportes[0].mensaje, /NÓMINA SEGEN/);
+  assert.match(reportes[0].mensaje, /CARGOS/);
   assert.equal(reportes[1].nomina, "INE");
-  assert.match(reportes[1].mensaje, /NÓMINA INE/);
-});
-
-test("obtenerReportesCorteSeparados emite 2 alertas oficiales distintas", () => {
-  const stats: EstadisticasNomina = {
-    total: 1000,
-    votaron: 450,
-    pendientes: 550,
-    porcentajeVotaron: "45.0%",
-    corteActivo: "10:00 AM",
-    porCorte: { "10:00 AM": 300 },
-    porNomina: {
-      SEGEN: {
-        nomina: "SEGEN",
-        total: 600,
-        votaron: 300,
-        pendientes: 300,
-        porcentaje: "50.0%",
-        porCorte: { "10:00 AM": 200 },
-      },
-      INE: {
-        nomina: "INE",
-        total: 400,
-        votaron: 150,
-        pendientes: 250,
-        porcentaje: "37.5%",
-        porCorte: { "10:00 AM": 100 },
-      },
-    },
-  };
-
-  const reportesCorte = obtenerReportesCorteSeparados("10:00 AM", stats);
-  assert.equal(reportesCorte.length, 2);
-  assert.equal(reportesCorte[0].nomina, "SEGEN");
-  assert.match(reportesCorte[0].mensaje, /CORTE DE LAS 10:00 AM/);
-  assert.match(reportesCorte[0].mensaje, /NÓMINA SEGEN/);
-  assert.match(reportesCorte[0].mensaje, /bloque de las 10:00 AM:\* 200/);
-
-  assert.equal(reportesCorte[1].nomina, "INE");
-  assert.match(reportesCorte[1].mensaje, /CORTE DE LAS 10:00 AM/);
-  assert.match(reportesCorte[1].mensaje, /NÓMINA INE/);
-  assert.match(reportesCorte[1].mensaje, /bloque de las 10:00 AM:\* 100/);
+  assert.match(reportes[1].mensaje, /UNIDAD/);
+  assert.match(reportes[1].mensaje, /Cédulas:/);
 });

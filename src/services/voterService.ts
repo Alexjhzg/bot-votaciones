@@ -15,6 +15,8 @@ export interface VoterRecord {
   cedula: string;
   nombre: string;
   nomina: string;
+  cargo: string;
+  unidad: string;
   centro: string;
   mesa: string;
   parroquia: string;
@@ -38,6 +40,14 @@ export interface RegistroResultado {
   reportadoPorPrevio?: string | null;
 }
 
+export interface DesgloseItem {
+  nombre: string;
+  total: number;
+  votaron: number;
+  pendientes: number;
+  porcentaje: string;
+}
+
 export interface EstadisticasNominaIndividual {
   nomina: string;
   total: number;
@@ -45,6 +55,9 @@ export interface EstadisticasNominaIndividual {
   pendientes: number;
   porcentaje: string;
   porCorte: Record<string, number>;
+  cedulasPorCorte: Record<string, string[]>;
+  porCargo: Record<string, DesgloseItem>;
+  porUnidad: Record<string, DesgloseItem>;
 }
 
 export interface EstadisticasNomina {
@@ -99,6 +112,13 @@ class VoterService {
             : "";
           const nominaFinal = normalizarNombreNomina(rawNomina, nominaPorDefecto);
 
+          const rawCargo = mapping.cargoKey
+            ? String(row.get(mapping.cargoKey) || "").trim()
+            : "";
+          const rawUnidad = mapping.unidadKey
+            ? String(row.get(mapping.unidadKey) || "").trim()
+            : "";
+
           const rawCentro = mapping.centroKey
             ? String(row.get(mapping.centroKey) || "").trim()
             : "";
@@ -130,6 +150,8 @@ class VoterService {
             cedula: cedulaLimpia,
             nombre: rawNombre || "Sin nombre registrado",
             nomina: nominaFinal,
+            cargo: rawCargo || "Sin cargo",
+            unidad: rawUnidad || "Sin unidad",
             centro: rawCentro,
             mesa: rawMesa,
             parroquia: rawParroquia,
@@ -221,7 +243,7 @@ class VoterService {
       voter.rowRef.set(voter.mapping.reportadoPorKey, remitente);
       await voter.rowRef.save();
       console.log(
-        `[INFO] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina}] - Corte: ${corte.etiqueta}`
+        `[INFO] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Corte: ${corte.etiqueta}`
       );
     } catch (err) {
       console.error(`[ERROR] Falló al guardar el voto en Google Sheets para C.I. ${cedula}:`, err);
@@ -287,7 +309,21 @@ class VoterService {
   }
 
   /**
-   * Calcula estadísticas de participación globales y desglosadas por nómina individual (SEGEN vs INE).
+   * Genera el mapa inicial de cédulas por corte.
+   */
+  private crearMapaCedulasInicial(): Record<string, string[]> {
+    const cedulas: Record<string, string[]> = {};
+    for (const etiqueta of Object.values(CORTES_ETIQUETAS)) {
+      cedulas[etiqueta] = [];
+    }
+    cedulas["Cierre (Post-7:00 PM)"] = [];
+    return cedulas;
+  }
+
+  /**
+   * Calcula estadísticas de participación globales y desglosadas por nómina individual (SEGEN e INE).
+   * Para SEGEN: agrupa por cargos y calcula totalización.
+   * Para INE: agrupa por unidad y acumula cédulas por cada corte.
    */
   public obtenerEstadisticas(): EstadisticasNomina {
     let total = 0;
@@ -307,13 +343,44 @@ class VoterService {
           pendientes: 0,
           porcentaje: "0.0%",
           porCorte: this.crearMapaCortesInicial(),
+          cedulasPorCorte: this.crearMapaCedulasInicial(),
+          porCargo: {},
+          porUnidad: {},
         };
       }
       porNomina[nom].total++;
 
+      // Agrupación por Cargo (SEGEN)
+      const cargo = voter.cargo || "Sin cargo";
+      if (!porNomina[nom].porCargo[cargo]) {
+        porNomina[nom].porCargo[cargo] = {
+          nombre: cargo,
+          total: 0,
+          votaron: 0,
+          pendientes: 0,
+          porcentaje: "0.0%",
+        };
+      }
+      porNomina[nom].porCargo[cargo].total++;
+
+      // Agrupación por Unidad (INE)
+      const unidad = voter.unidad || "Sin unidad";
+      if (!porNomina[nom].porUnidad[unidad]) {
+        porNomina[nom].porUnidad[unidad] = {
+          nombre: unidad,
+          total: 0,
+          votaron: 0,
+          pendientes: 0,
+          porcentaje: "0.0%",
+        };
+      }
+      porNomina[nom].porUnidad[unidad].total++;
+
       if (voter.haVotado) {
         votaron++;
         porNomina[nom].votaron++;
+        porNomina[nom].porCargo[cargo].votaron++;
+        porNomina[nom].porUnidad[unidad].votaron++;
 
         if (voter.corte) {
           if (porCorteGlobal[voter.corte] !== undefined) {
@@ -324,9 +391,14 @@ class VoterService {
 
           if (porNomina[nom].porCorte[voter.corte] !== undefined) {
             porNomina[nom].porCorte[voter.corte]++;
+            porNomina[nom].cedulasPorCorte[voter.corte].push(voter.cedula);
           } else {
             porNomina[nom].porCorte[voter.corte] =
               (porNomina[nom].porCorte[voter.corte] || 0) + 1;
+            if (!porNomina[nom].cedulasPorCorte[voter.corte]) {
+              porNomina[nom].cedulasPorCorte[voter.corte] = [];
+            }
+            porNomina[nom].cedulasPorCorte[voter.corte].push(voter.cedula);
           }
         }
       }
@@ -339,6 +411,18 @@ class VoterService {
       item.pendientes = item.total - item.votaron;
       item.porcentaje =
         item.total > 0 ? `${((item.votaron / item.total) * 100).toFixed(1)}%` : "0.0%";
+
+      // Porcentajes de cargos
+      for (const c of Object.values(item.porCargo)) {
+        c.pendientes = c.total - c.votaron;
+        c.porcentaje = c.total > 0 ? `${((c.votaron / c.total) * 100).toFixed(1)}%` : "0.0%";
+      }
+
+      // Porcentajes de unidades
+      for (const u of Object.values(item.porUnidad)) {
+        u.pendientes = u.total - u.votaron;
+        u.porcentaje = u.total > 0 ? `${((u.votaron / u.total) * 100).toFixed(1)}%` : "0.0%";
+      }
     }
 
     const { etiqueta: corteActivo } = obtenerCorteActivoActual(config.app.timezone);
