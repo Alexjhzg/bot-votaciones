@@ -53,6 +53,11 @@ export function registrarHandlers(bot: Bot): void {
           const res = await voterService.registrarVoto(cedula, remitente);
 
           if (res.status === "SUCCESS" && res.voter) {
+            try {
+              await ctx.react("👍");
+            } catch {
+              // Silencioso si el chat no permite reacciones
+            }
             await ctx.reply(formatearConfirmacionVoto(res.voter), {
               parse_mode: "Markdown",
             });
@@ -118,6 +123,14 @@ export function registrarHandlers(bot: Bot): void {
       if (noEncontrados.length > 0) {
         respuestaLote += `❌ *No Encontrados en Nómina (${noEncontrados.length}):*\n`;
         noEncontrados.forEach((e) => (respuestaLote += `▪️ ${e}\n`));
+      }
+
+      if (exitosos.length > 0) {
+        try {
+          await ctx.react("👍");
+        } catch {
+          // Silencioso si el chat no permite reacciones
+        }
       }
 
       await ctx.reply(respuestaLote, { parse_mode: "Markdown" });
