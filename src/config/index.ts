@@ -22,6 +22,20 @@ export function validarConfig(): void {
     console.error("[FATAL] La variable GOOGLE_SPREADSHEET_ID es obligatoria.");
     process.exit(1);
   }
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
+    console.error("[FATAL] La variable GOOGLE_SERVICE_ACCOUNT_EMAIL es obligatoria.");
+    process.exit(1);
+  }
+  if (!config.google.privateKey) {
+    console.error("[FATAL] La variable GOOGLE_PRIVATE_KEY es obligatoria.");
+    process.exit(1);
+  }
+  if (!config.google.privateKey.includes("-----BEGIN PRIVATE KEY-----")) {
+    console.warn(
+      "[ADVERTENCIA CONFIG] GOOGLE_PRIVATE_KEY no parece tener el formato PEM esperado ('-----BEGIN PRIVATE KEY-----'). " +
+      "Revisa que hayas copiado el campo 'private_key' completo del archivo JSON descargado de Google Cloud."
+    );
+  }
 }
 
 function sanitizarPrivateKey(rawKey?: string): string {
@@ -32,7 +46,22 @@ function sanitizarPrivateKey(rawKey?: string): string {
     key = key.slice(1, -1).trim();
   }
   // Reemplazar saltos de línea escapados a saltos reales
-  return key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+  key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+
+  // Si no tiene saltos de línea reales pero contiene las cabeceras estándar
+  if (!key.includes("\n") && key.includes("BEGIN PRIVATE KEY")) {
+    const beginHeader = "-----BEGIN PRIVATE KEY-----";
+    const endHeader = "-----END PRIVATE KEY-----";
+    if (key.includes(beginHeader) && key.includes(endHeader)) {
+      const startIdx = key.indexOf(beginHeader) + beginHeader.length;
+      const endIdx = key.indexOf(endHeader);
+      const base64Body = key.substring(startIdx, endIdx).replace(/\s+/g, "");
+      const formattedBody = base64Body.match(/.{1,64}/g)?.join("\n") || base64Body;
+      key = `${beginHeader}\n${formattedBody}\n${endHeader}\n`;
+    }
+  }
+
+  return key;
 }
 
 export const config = {
