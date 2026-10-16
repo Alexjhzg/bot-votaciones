@@ -58,9 +58,7 @@ export function registrarHandlers(bot: Bot): void {
             } catch {
               // Silencioso si el chat no permite reacciones
             }
-            await ctx.reply(formatearConfirmacionVoto(res.voter), {
-              parse_mode: "Markdown",
-            });
+            // Voto registrado exitosamente: solo reacciona con pulgar arriba sin enviar mensaje
           } else if (res.status === "ALREADY_VOTED" && res.voter) {
             await ctx.reply(
               formatearAlertaYaVoto(
@@ -109,22 +107,6 @@ export function registrarHandlers(bot: Bot): void {
         }
       }
 
-      let respuestaLote = `📋 *REPORTE DE VOTOS PROCESADOS*\n\n`;
-      if (exitosos.length > 0) {
-        respuestaLote += `✅ *Votos Registrados (${exitosos.length}):*\n`;
-        exitosos.forEach((e) => (respuestaLote += `▪️ ${e}\n`));
-        respuestaLote += `\n`;
-      }
-      if (yaVotaron.length > 0) {
-        respuestaLote += `⚠️ *Ya Habían Votado (${yaVotaron.length}):*\n`;
-        yaVotaron.forEach((e) => (respuestaLote += `▪️ ${e}\n`));
-        respuestaLote += `\n`;
-      }
-      if (noEncontrados.length > 0) {
-        respuestaLote += `❌ *No Encontrados en Nómina (${noEncontrados.length}):*\n`;
-        noEncontrados.forEach((e) => (respuestaLote += `▪️ ${e}\n`));
-      }
-
       if (exitosos.length > 0) {
         try {
           await ctx.react("👍");
@@ -133,7 +115,21 @@ export function registrarHandlers(bot: Bot): void {
         }
       }
 
-      await ctx.reply(respuestaLote, { parse_mode: "Markdown" });
+      // Si todas las cédulas fueron exitosas, solo se deja la reacción sin enviar mensajes al chat.
+      // Solo respondemos si hubo incidencias (ya habían votado o no encontradas)
+      if (yaVotaron.length > 0 || noEncontrados.length > 0) {
+        let respuestaIncidencias = `📋 *ATENCIÓN - INCIDENCIAS EN REPORTE*\n\n`;
+        if (yaVotaron.length > 0) {
+          respuestaIncidencias += `⚠️ *Ya Habían Votado (${yaVotaron.length}):*\n`;
+          yaVotaron.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
+          respuestaIncidencias += `\n`;
+        }
+        if (noEncontrados.length > 0) {
+          respuestaIncidencias += `❌ *No Encontrados en Nómina (${noEncontrados.length}):*\n`;
+          noEncontrados.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
+        }
+        await ctx.reply(respuestaIncidencias, { parse_mode: "Markdown" });
+      }
       return;
     }
 
