@@ -26,12 +26,12 @@ export function registrarComandos(bot: Bot): void {
       `⏰ *Horarios Oficiales de Cortes:* 8am, 10am, 12pm, 2pm, 4pm, 6pm y 7pm\n\n` +
       `🗳️ *¿Cómo registrar un voto?*\n` +
       `Simplemente escribe la cédula y la frase *voto listo*:\n` +
-      `👉 \`27334492 voto listo\`\n` +
-      `👉 \`V-27.334.492 voto listo\`\n\n` +
+      `👉 \`12345678 voto listo\`\n` +
+      `👉 \`V-12.345.678 voto listo\`\n\n` +
       `🔍 *¿Cómo consultar un elector?*\n` +
       `Envía solo el número de cédula o usa el comando:\n` +
-      `👉 \`27334492\`\n` +
-      `👉 \`/consulta 27334492\`\n\n` +
+      `👉 \`12345678\`\n` +
+      `👉 \`/consulta 12345678\`\n\n` +
       `📊 *Reportes Disponibles (Emitidos por separado):*\n` +
       `▪️ \`/resumen\` o \`/total\` — Emite los dos reportes por separado (SEGEN e INE).\n` +
       `▪️ \`/segen\` — Emite exclusivamente el reporte de SEGEN.\n` +
@@ -142,7 +142,7 @@ export function registrarComandos(bot: Bot): void {
 
     if (cedulas.length === 0) {
       await ctx.reply(
-        "ℹ️ *Uso correcto:* `/consulta <número de cédula>`\n_Ejemplo:_ `/consulta 27334492`",
+        "ℹ️ *Uso correcto:* `/consulta <número de cédula>`\n_Ejemplo:_ `/consulta 12345678`",
         { parse_mode: "Markdown" }
       );
       return;
@@ -172,7 +172,7 @@ export function registrarComandos(bot: Bot): void {
 
     if (cedulas.length === 0) {
       await ctx.reply(
-        "ℹ️ *Uso correcto:* `/deshacer <número de cédula>`\n_Ejemplo:_ `/deshacer 27334492`",
+        "ℹ️ *Uso correcto:* `/deshacer <número de cédula>`\n_Ejemplo:_ `/deshacer 12345678`",
         { parse_mode: "Markdown" }
       );
       return;

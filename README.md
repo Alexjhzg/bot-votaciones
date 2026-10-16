@@ -10,16 +10,16 @@ Bot de Telegram ágil y simplificado diseñado para salas situacionales, coordin
 Cualquier usuario o coordinador en un grupo o chat privado puede enviar la cédula con la frase `voto listo`:
 
 ```text
-27334492 voto listo
+12345678 voto listo
 ```
-*También acepta variantes como `V-27.334.492 voto listo`, `27334492 listo` o varias cédulas en un mismo mensaje.*
+*También acepta variantes como `V-12.345.678 voto listo`, `12345678 listo` o varias cédulas en un mismo mensaje.*
 
 El bot responde confirmando los datos del elector:
 ```text
 ✅ VOTO REGISTRADO EXITOSAMENTE
 
 👤 Elector: María Pérez
-🆔 Cédula: V-27.334.492
+🆔 Cédula: V-12.345.678
 🏢 Nómina: SEGEN
 🏫 Centro: E.B. República de Venezuela
 🗳️ Mesa: 2
@@ -32,7 +32,7 @@ Si una persona ya fue registrada anteriormente, el bot evita duplicaciones y adv
 ⚠️ ATENCIÓN: EL VOTO YA FUE REGISTRADO PREVIAMENTE
 
 👤 Elector: María Pérez
-🆔 Cédula: V-27.334.492
+🆔 Cédula: V-12.345.678
 🏢 Nómina: SEGEN
 ⏰ Hora de registro anterior: 16/10/2026 08:30:10 AM
 👤 Registrado anteriormente por: @supervisor_juan
@@ -43,7 +43,7 @@ No se realizaron cambios duplicados.
 ### 3. Consulta Rápida de Elector (Dónde Vota)
 Si se envía únicamente el número de cédula:
 ```text
-27334492
+12345678
 ```
 El bot devuelve la ficha completa del elector indicando si está **Pendiente por Votar** o si **Ya Votó**.
 

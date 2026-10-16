@@ -61,11 +61,11 @@ const statsIne = {
 };
 
 console.log('----------------------------------------------------');
-console.log('1. RESPUESTA AL REGISTRAR UN VOTO (ej: 27334492 voto listo)');
+console.log('1. RESPUESTA AL REGISTRAR UN VOTO (ej: 12345678 voto listo)');
 console.log('----------------------------------------------------');
 console.log(formatearConfirmacionVoto({
   rowIndex: 2,
-  cedula: '27334492',
+  cedula: '12345678',
   nombre: 'CARLOS MANUEL RODRIGUEZ',
   nomina: 'SEGEN',
   cargo: 'VERIFICADOR/ENCUESTADOR INTEGRAL',
@@ -82,7 +82,7 @@ console.log('2. RESPUESTA SI LA CÉDULA YA HABÍA SIDO REGISTRADA');
 console.log('----------------------------------------------------');
 console.log(formatearAlertaYaVoto({
   rowIndex: 2,
-  cedula: '27334492',
+  cedula: '12345678',
   nombre: 'CARLOS MANUEL RODRIGUEZ',
   nomina: 'SEGEN',
   haVotado: true,
