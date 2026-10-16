@@ -227,20 +227,20 @@ class VoterService {
       };
     }
 
-    // Fecha, hora y corte horario oficial activo
-    const { completaStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
+    // Hora y corte horario oficial activo
+    const { horaStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
     const corte = determinarCortePorHora(hora24, minuto);
 
     // Actualizar en memoria primero (respuesta instantánea)
     voter.haVotado = true;
     voter.corte = corte.etiqueta;
-    voter.fechaHoraVoto = completaStr;
+    voter.fechaHoraVoto = horaStr;
     voter.reportadoPor = remitente;
 
     // Persistir de inmediato en Google Sheets
     try {
       voter.rowRef.set(voter.mapping.votoKey, "SI");
-      voter.rowRef.set(voter.mapping.fechaHoraKey, completaStr);
+      voter.rowRef.set(voter.mapping.fechaHoraKey, horaStr);
       voter.rowRef.set(voter.mapping.corteKey, corte.etiqueta);
       voter.rowRef.set(voter.mapping.reportadoPorKey, remitente);
       await voter.rowRef.save();

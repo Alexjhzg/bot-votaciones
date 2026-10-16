@@ -147,12 +147,13 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
 
   const fechaHoraKey =
     buscarColumna([
-      /^fecha.*hora$/i,
-      /^hora.*voto$/i,
-      /^fecha$/i,
       /^hora$/i,
+      /^hora.*voto$/i,
+      /^hora.*registro$/i,
+      /^fecha.*hora$/i,
+      /^fecha$/i,
       /^timestamp$/i,
-    ]) || "Fecha y Hora";
+    ]) || "Hora";
 
   const corteKey =
     buscarColumna([
@@ -188,20 +189,35 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
 }
 
 /**
- * Asegura que la hoja tenga las columnas de auditoría de voto ("Voto Listo", "Fecha y Hora", "Corte", "Reportado Por").
- * Si no existen, las añade al encabezado.
+ * Asegura que la hoja tenga las columnas de auditoría de voto ("Voto Listo", "Hora", "Corte", "Reportado Por").
+ * Si existe "Fecha y Hora", la renombra automáticamente a "Hora".
  */
 export async function asegurarColumnasDeVoto(
   sheet: GoogleSpreadsheetWorksheet
 ): Promise<HeaderMapping> {
   await sheet.loadHeaderRow();
   let headers = [...sheet.headerValues];
+
+  // Renombrar automáticamente "Fecha y Hora" a "Hora" si existía previamente
+  let renombrado = false;
+  headers = headers.map((h) => {
+    if (normalizarTexto(h) === "fecha y hora") {
+      renombrado = true;
+      return "Hora";
+    }
+    return h;
+  });
+
+  if (renombrado) {
+    await sheet.setHeaderRow(headers);
+  }
+
   let mapping = detectarMapeoColumnas(headers);
   let huboCambios = false;
 
   const columnasRequeridas = [
     { key: mapping.votoKey, fallback: "Voto Listo" },
-    { key: mapping.fechaHoraKey, fallback: "Fecha y Hora" },
+    { key: mapping.fechaHoraKey, fallback: "Hora" },
     { key: mapping.corteKey, fallback: "Corte" },
     { key: mapping.reportadoPorKey, fallback: "Reportado Por" },
   ];
