@@ -24,6 +24,17 @@ export function validarConfig(): void {
   }
 }
 
+function sanitizarPrivateKey(rawKey?: string): string {
+  if (!rawKey) return "";
+  let key = rawKey.trim();
+  // Quitar comillas circundantes si se pegaron en Render o .env
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim();
+  }
+  // Reemplazar saltos de línea escapados a saltos reales
+  return key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+}
+
 export const config = {
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN!,
@@ -40,14 +51,14 @@ export const config = {
   google: {
     spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
     serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!,
-    privateKey: (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+    privateKey: sanitizarPrivateKey(process.env.GOOGLE_PRIVATE_KEY),
     // Pestañas específicas separadas por coma, o vacío para leer todas las relevantes
     sheetTabs: process.env.GOOGLE_SHEET_TABS
       ? process.env.GOOGLE_SHEET_TABS.split(",").map((t) => t.trim()).filter(Boolean)
       : [],
   },
   app: {
-    timezone: process.env.TIMEZONE || "America/Caracas",
+    timezone: process.env.TIMEZONE || process.env.APP_TIMEZONE || "America/Caracas",
     port: Number(process.env.PORT) || 8080,
     // Horarios oficiales de cortes de votación: 8am, 10am, 12pm, 2pm, 4pm, 6pm, 7pm
     cutoffHours: [8, 10, 12, 14, 16, 18, 19],
