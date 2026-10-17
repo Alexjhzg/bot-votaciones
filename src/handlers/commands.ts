@@ -90,7 +90,27 @@ export function registrarComandos(bot: Bot): void {
         return;
       }
 
-      // Enviar cada reporte por separado (uno para SEGEN y otro para INE)
+      const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : "";
+
+      // Si se ejecuta en el grupo exclusivo de SEGEN
+      if (chatIdStr === config.telegram.segenChatId) {
+        const rep = reportes.find((r) => r.nomina.toUpperCase().includes("SEGEN"));
+        if (rep) {
+          await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
+          return;
+        }
+      }
+
+      // Si se ejecuta en el grupo exclusivo de INE
+      if (chatIdStr === config.telegram.ineChatId) {
+        const rep = reportes.find((r) => r.nomina.toUpperCase().includes("INE"));
+        if (rep) {
+          await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
+          return;
+        }
+      }
+
+      // En cualquier otro chat o privado, enviar ambos reportes
       for (const rep of reportes) {
         await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
       }
@@ -157,7 +177,27 @@ export function registrarComandos(bot: Bot): void {
         return;
       }
 
-      // Enviar dos reportes de corte por separado
+      const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : "";
+
+      // Si se ejecuta en el grupo exclusivo de SEGEN
+      if (chatIdStr === config.telegram.segenChatId) {
+        const rep = reportesCorte.find((r) => r.nomina.toUpperCase().includes("SEGEN"));
+        if (rep) {
+          await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
+          return;
+        }
+      }
+
+      // Si se ejecuta en el grupo exclusivo de INE
+      if (chatIdStr === config.telegram.ineChatId) {
+        const rep = reportesCorte.find((r) => r.nomina.toUpperCase().includes("INE"));
+        if (rep) {
+          await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
+          return;
+        }
+      }
+
+      // Enviar ambos reportes de corte en privado u otros chats
       for (const rep of reportesCorte) {
         await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
       }

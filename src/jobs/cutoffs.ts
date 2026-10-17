@@ -30,8 +30,51 @@ export function programarCortesHorarios(api: Api): void {
           return;
         }
 
-        // 1. Enviar cada reporte por separado a cada uno de los grupos configurados
+        // 1. Enviar exclusivamente el reporte de SEGEN a su grupo
+        if (config.telegram.segenChatId) {
+          const repSegen = reportes.find((r) => r.nomina.toUpperCase().includes("SEGEN"));
+          if (repSegen) {
+            try {
+              await api.sendMessage(config.telegram.segenChatId, repSegen.mensaje, {
+                parse_mode: "Markdown",
+              });
+              console.log(
+                `[INFO] Reporte de corte ${etiqueta} enviado exclusivamente al grupo SEGEN (${config.telegram.segenChatId})`
+              );
+            } catch (err: any) {
+              console.error(
+                `[ERROR] No se pudo enviar el reporte de corte SEGEN al grupo ${config.telegram.segenChatId}:`,
+                err.message
+              );
+            }
+          }
+        }
+
+        // 2. Enviar exclusivamente el reporte de INE a su grupo
+        if (config.telegram.ineChatId) {
+          const repIne = reportes.find((r) => r.nomina.toUpperCase().includes("INE"));
+          if (repIne) {
+            try {
+              await api.sendMessage(config.telegram.ineChatId, repIne.mensaje, {
+                parse_mode: "Markdown",
+              });
+              console.log(
+                `[INFO] Reporte de corte ${etiqueta} enviado exclusivamente al grupo INE (${config.telegram.ineChatId})`
+              );
+            } catch (err: any) {
+              console.error(
+                `[ERROR] No se pudo enviar el reporte de corte INE al grupo ${config.telegram.ineChatId}:`,
+                err.message
+              );
+            }
+          }
+        }
+
+        // 3. Enviar a otros grupos de reporte configurados (si no son ni SEGEN ni INE)
         for (const chatId of config.telegram.reportChatIds) {
+          if (chatId === config.telegram.segenChatId || chatId === config.telegram.ineChatId) {
+            continue;
+          }
           for (const rep of reportes) {
             try {
               await api.sendMessage(chatId, rep.mensaje, {
