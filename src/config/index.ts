@@ -77,7 +77,7 @@ export const config = {
       ? process.env.TELEGRAM_MANAGER_CHAT_ID.split(",").map((id) => id.trim()).filter(Boolean)
       : [],
     segenChatId: (process.env.TELEGRAM_SEGEN_CHAT_ID || "-1003785032543").trim(),
-    ineChatId: (process.env.TELEGRAM_INE_CHAT_ID || "").trim(),
+    ineChatId: (process.env.TELEGRAM_INE_CHAT_ID || "-4562387860").trim(),
   },
   google: {
     spreadsheetId: (process.env.GOOGLE_SPREADSHEET_ID || "").trim(),
