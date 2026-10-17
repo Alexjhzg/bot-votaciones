@@ -92,7 +92,7 @@ export function registrarComandos(bot: Bot): void {
 
       const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : "";
 
-      // Si se ejecuta en el grupo exclusivo de SEGEN
+      // Si se ejecuta en el grupo operativo de SEGEN, solo mostramos SEGEN
       if (chatIdStr === config.telegram.segenChatId) {
         const rep = reportes.find((r) => r.nomina.toUpperCase().includes("SEGEN"));
         if (rep) {
@@ -101,16 +101,8 @@ export function registrarComandos(bot: Bot): void {
         }
       }
 
-      // Si se ejecuta en el grupo exclusivo de INE
-      if (chatIdStr === config.telegram.ineChatId) {
-        const rep = reportes.find((r) => r.nomina.toUpperCase().includes("INE"));
-        if (rep) {
-          await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
-          return;
-        }
-      }
-
-      // En cualquier otro chat o privado, enviar ambos reportes
+      // En el grupo de Gerencia INE Monagas, chats privados o directivos:
+      // Se emiten ambos reportes (INE y SEGEN) porque la gerencia supervisa ambas nóminas
       for (const rep of reportes) {
         await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
       }
@@ -162,7 +154,7 @@ export function registrarComandos(bot: Bot): void {
     }
   });
 
-  // Comando /corte o /cortes (emite 2 reportes de corte por separado: SEGEN e INE)
+  // Comando /corte o /cortes (emite reportes del corte activo)
   bot.command(["corte", "cortes"], async (ctx: Context) => {
     try {
       const remitente = obtenerNombreRemitente(ctx);
@@ -179,7 +171,7 @@ export function registrarComandos(bot: Bot): void {
 
       const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : "";
 
-      // Si se ejecuta en el grupo exclusivo de SEGEN
+      // Si se ejecuta en el grupo operativo de SEGEN, solo enviamos el corte de SEGEN
       if (chatIdStr === config.telegram.segenChatId) {
         const rep = reportesCorte.find((r) => r.nomina.toUpperCase().includes("SEGEN"));
         if (rep) {
@@ -188,16 +180,7 @@ export function registrarComandos(bot: Bot): void {
         }
       }
 
-      // Si se ejecuta en el grupo exclusivo de INE
-      if (chatIdStr === config.telegram.ineChatId) {
-        const rep = reportesCorte.find((r) => r.nomina.toUpperCase().includes("INE"));
-        if (rep) {
-          await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
-          return;
-        }
-      }
-
-      // Enviar ambos reportes de corte en privado u otros chats
+      // En Gerencia INE Monagas, privados o directivos: se envían ambos cortes (SEGEN e INE)
       for (const rep of reportesCorte) {
         await ctx.reply(rep.mensaje, { parse_mode: "Markdown" });
       }

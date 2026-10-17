@@ -50,20 +50,19 @@ export function programarCortesHorarios(api: Api): void {
           }
         }
 
-        // 2. Enviar exclusivamente el reporte de INE a su grupo
+        // 2. Enviar a Gerencia INE Monagas (recibe supervisión completa: INE y SEGEN)
         if (config.telegram.ineChatId) {
-          const repIne = reportes.find((r) => r.nomina.toUpperCase().includes("INE"));
-          if (repIne) {
+          for (const rep of reportes) {
             try {
-              await api.sendMessage(config.telegram.ineChatId, repIne.mensaje, {
+              await api.sendMessage(config.telegram.ineChatId, rep.mensaje, {
                 parse_mode: "Markdown",
               });
               console.log(
-                `[INFO] Reporte de corte ${etiqueta} enviado exclusivamente al grupo INE (${config.telegram.ineChatId})`
+                `[INFO] Reporte de corte ${etiqueta} (${rep.nomina}) enviado a Gerencia INE Monagas (${config.telegram.ineChatId})`
               );
             } catch (err: any) {
               console.error(
-                `[ERROR] No se pudo enviar el reporte de corte INE al grupo ${config.telegram.ineChatId}:`,
+                `[ERROR] No se pudo enviar el reporte de corte (${rep.nomina}) a Gerencia INE Monagas:`,
                 err.message
               );
             }
