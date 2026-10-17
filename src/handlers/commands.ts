@@ -23,16 +23,16 @@ export function registrarComandos(bot: Bot): void {
 
     const mensaje =
       `👋 *¡Bienvenido al Bot de Consulta y Registro de Votaciones!*\n\n` +
-      `Este bot te permite registrar la participación de electores en tiempo real y consultar su centro de votación.\n\n` +
+      `Este bot te permite registrar la participación de electores en tiempo real de forma ágil y directa.\n\n` +
       `🕒 *Corte Horario Activo:* ${corteActual}\n` +
       `⏰ *Horarios Oficiales de Cortes:* 8am, 10am, 12pm, 2pm, 4pm, 6pm y 7pm\n\n` +
       `🗳️ *¿Cómo registrar un voto?*\n` +
-      `Simplemente escribe la cédula y la frase *voto listo*:\n` +
-      `👉 \`12345678 voto listo\`\n` +
-      `👉 \`V-12.345.678 voto listo\`\n\n` +
-      `🔍 *¿Cómo consultar un elector?*\n` +
-      `Envía solo el número de cédula o usa el comando:\n` +
+      `Simplemente escribe el número de cédula (el bot marcará con 👍):\n` +
       `👉 \`12345678\`\n` +
+      `👉 \`V-12.345.678\`\n` +
+      `👉 _También puedes enviar varias cédulas en un solo mensaje._\n\n` +
+      `🔍 *¿Cómo consultar un elector?*\n` +
+      `Usa el comando /consulta:\n` +
       `👉 \`/consulta 12345678\`\n\n` +
       `📊 *Reportes Disponibles (Emitidos por separado):*\n` +
       `▪️ \`/resumen\` o \`/total\` — Emite los dos reportes por separado (SEGEN e INE).\n` +
@@ -56,11 +56,10 @@ export function registrarComandos(bot: Bot): void {
     const mensaje =
       `🤖 *LISTA COMPLETA DE COMANDOS DEL BOT*\n\n` +
       `🗳️ *REGISTRO DE PARTICIPACIÓN:*\n` +
-      `▪️ \`<cédula> voto listo\` — Registra el voto (Ej: \`12345678 voto listo\`)\n` +
+      `▪️ \`<cédula>\` — Registra el voto inmediatamente con 👍 (Ej: \`12345678\`)\n` +
       `▪️ \`/deshacer <cédula>\` — Anula un registro en caso de error (Ej: \`/deshacer 12345678\`)\n\n` +
       `🔍 *CONSULTA DE ELECTORES:*\n` +
-      `▪️ \`<cédula>\` — Consulta rápida de centro y estado (Ej: \`12345678\`)\n` +
-      `▪️ \`/consulta <cédula>\` — Consulta con comando (Ej: \`/consulta 12345678\`)\n\n` +
+      `▪️ \`/consulta <cédula>\` — Consulta datos del elector sin marcar voto (Ej: \`/consulta 12345678\`)\n\n` +
       `📊 *REPORTES ELECTORALES:*\n` +
       `▪️ \`/resumen\` o \`/total\` — Emite los dos reportes por separado (SEGEN e INE)\n` +
       `▪️ \`/segen\` — Reporte de SEGEN (por Cargos y Totalización)\n` +

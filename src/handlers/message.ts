@@ -36,127 +36,119 @@ export function registrarHandlers(bot: Bot): void {
     }
 
     const remitente = obtenerNombreRemitente(ctx);
-    const esVotoListo = esIntencionVotoListo(texto);
     const esGrupo = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
     const origenDesc = esGrupo && "title" in ctx.chat ? `Grupo "${(ctx.chat as any).title}" (${ctx.chat.id})` : `Privado (${ctx.chat?.id})`;
 
-    // ==========================================================
-    // CASO A: INTENCIÓN "VOTO LISTO" (ej: "12345678 voto listo")
-    // ==========================================================
-    if (esVotoListo) {
-      console.log(`[INFO] [${origenDesc}] Registro de 'voto listo' de ${remitente}: [${cedulas.join(", ")}]`);
-
-      // Si es una sola cédula (caso más común y rápido)
-      if (cedulas.length === 1) {
-        const cedula = cedulas[0];
-        try {
-          const res = await voterService.registrarVoto(cedula, remitente);
-
-          if (res.status === "SUCCESS" && res.voter) {
-            try {
-              await ctx.react("👍");
-            } catch {
-              // Silencioso si el chat no permite reacciones
-            }
-            // Voto registrado exitosamente: solo reacciona con pulgar arriba sin enviar mensaje
-          } else if (res.status === "ALREADY_VOTED" && res.voter) {
-            await ctx.reply(
-              formatearAlertaYaVoto(
-                res.voter,
-                res.fechaHoraPrevia,
-                res.reportadoPorPrevio
-              ),
-              { parse_mode: "Markdown" }
-            );
-          } else {
-            await ctx.reply(
-              `❌ *Cédula no encontrada en nómina*\n\nLa C.I. *V-${formatearCedula(
-                cedula
-              )}* no se encuentra en las listas oficiales (SEGEN / INE).`,
-              { parse_mode: "Markdown" }
-            );
-          }
-        } catch (err) {
-          console.error(`[ERROR] Error procesando voto para ${cedula}:`, err);
-          await ctx.reply(
-            `❌ Ocurrió un error al intentar registrar el voto para la C.I. V-${formatearCedula(
-              cedula
-            )} en Google Sheets.`
-          );
-        }
-        return;
-      }
-
-      // Si enviaron varias cédulas juntas en el mismo mensaje
-      const exitosos: string[] = [];
-      const yaVotaron: string[] = [];
-      const noEncontrados: string[] = [];
-
-      for (const cedula of cedulas) {
-        try {
-          const res = await voterService.registrarVoto(cedula, remitente);
-          if (res.status === "SUCCESS" && res.voter) {
-            exitosos.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
-          } else if (res.status === "ALREADY_VOTED" && res.voter) {
-            yaVotaron.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
-          } else {
-            noEncontrados.push(`V-${formatearCedula(cedula)}`);
-          }
-        } catch (err) {
-          console.error(`[ERROR] Error en lote para ${cedula}:`, err);
-        }
-      }
-
-      if (exitosos.length > 0) {
-        try {
-          await ctx.react("👍");
-        } catch {
-          // Silencioso si el chat no permite reacciones
-        }
-      }
-
-      // Si todas las cédulas fueron exitosas, solo se deja la reacción sin enviar mensajes al chat.
-      // Solo respondemos si hubo incidencias (ya habían votado o no encontradas)
-      if (yaVotaron.length > 0 || noEncontrados.length > 0) {
-        let respuestaIncidencias = `📋 *ATENCIÓN - INCIDENCIAS EN REPORTE*\n\n`;
-        if (yaVotaron.length > 0) {
-          respuestaIncidencias += `⚠️ *Ya Habían Votado (${yaVotaron.length}):*\n`;
-          yaVotaron.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
-          respuestaIncidencias += `\n`;
-        }
-        if (noEncontrados.length > 0) {
-          respuestaIncidencias += `❌ *No Encontrados en Nómina (${noEncontrados.length}):*\n`;
-          noEncontrados.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
-        }
-        await ctx.reply(respuestaIncidencias, { parse_mode: "Markdown" });
-      }
-      return;
-    }
-
-    // ==========================================================
-    // CASO B: CONSULTA SIMPLE (ej: enviaron solo la cédula "27334492")
-    // ==========================================================
-    // Si el mensaje es corto (menos de 60 caracteres) o parece una consulta explícita
-    if (texto.length <= 60 || /consulta|donde|centro|vota|elector/i.test(texto)) {
+    // Si el usuario pide explícitamente consultar datos sin marcar voto
+    const esConsultaExplicita = /^\s*(consulta|consultar|donde|info|quien)\b/i.test(texto);
+    if (esConsultaExplicita) {
       const cedula = cedulas[0];
       const voter = voterService.consultar(cedula);
 
       if (!voter) {
-        // En chats privados respondemos siempre. En grupos, solo si el mensaje era casi exclusivamente la cédula
-        const esGrupo = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
-        if (!esGrupo || texto.length <= 25) {
-          await ctx.reply(
-            `❌ *Cédula no encontrada*\n\nLa C.I. *V-${formatearCedula(
-              cedula
-            )}* no aparece en la nómina oficial.`,
-            { parse_mode: "Markdown" }
-          );
-        }
+        await ctx.reply(
+          `❌ *Cédula no encontrada*\n\nLa C.I. *V-${formatearCedula(
+            cedula
+          )}* no aparece en la nómina oficial.`,
+          { parse_mode: "Markdown" }
+        );
         return;
       }
 
       await ctx.reply(formatearTarjetaElector(voter), { parse_mode: "Markdown" });
+      return;
     }
+
+    // ==========================================================
+    // REGISTRO DE VOTO DIRECTO (SOLO CÉDULA O CÉDULAS)
+    // ==========================================================
+    console.log(`[INFO] [${origenDesc}] Registro de voto para cédula(s) de ${remitente}: [${cedulas.join(", ")}]`);
+
+    // Si es una sola cédula (caso más común y rápido)
+    if (cedulas.length === 1) {
+      const cedula = cedulas[0];
+      try {
+        const res = await voterService.registrarVoto(cedula, remitente);
+
+        if (res.status === "SUCCESS" && res.voter) {
+          try {
+            await ctx.react("👍");
+          } catch {
+            // Silencioso si el chat no permite reacciones
+          }
+          // Voto registrado exitosamente: solo reacciona con pulgar arriba sin enviar mensaje
+        } else if (res.status === "ALREADY_VOTED" && res.voter) {
+          await ctx.reply(
+            formatearAlertaYaVoto(
+              res.voter,
+              res.fechaHoraPrevia,
+              res.reportadoPorPrevio
+            ),
+            { parse_mode: "Markdown" }
+          );
+        } else {
+          await ctx.reply(
+            `❌ *Cédula no encontrada en nómina*\n\nLa C.I. *V-${formatearCedula(
+              cedula
+            )}* no se encuentra en las listas oficiales (SEGEN / INE).`,
+            { parse_mode: "Markdown" }
+          );
+        }
+      } catch (err) {
+        console.error(`[ERROR] Error procesando voto para ${cedula}:`, err);
+        await ctx.reply(
+          `❌ Ocurrió un error al intentar registrar el voto para la C.I. V-${formatearCedula(
+            cedula
+          )} en Google Sheets.`
+        );
+      }
+      return;
+    }
+
+    // Si enviaron varias cédulas juntas en el mismo mensaje
+    const exitosos: string[] = [];
+    const yaVotaron: string[] = [];
+    const noEncontrados: string[] = [];
+
+    for (const cedula of cedulas) {
+      try {
+        const res = await voterService.registrarVoto(cedula, remitente);
+        if (res.status === "SUCCESS" && res.voter) {
+          exitosos.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
+        } else if (res.status === "ALREADY_VOTED" && res.voter) {
+          yaVotaron.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
+        } else {
+          noEncontrados.push(`V-${formatearCedula(cedula)}`);
+        }
+      } catch (err) {
+        console.error(`[ERROR] Error en lote para ${cedula}:`, err);
+      }
+    }
+
+    if (exitosos.length > 0) {
+      try {
+        await ctx.react("👍");
+      } catch {
+        // Silencioso si el chat no permite reacciones
+      }
+    }
+
+    // Si todas las cédulas fueron exitosas, solo se deja la reacción sin enviar mensajes al chat.
+    // Solo respondemos si hubo incidencias (ya habían votado o no encontradas)
+    if (yaVotaron.length > 0 || noEncontrados.length > 0) {
+      let respuestaIncidencias = `📋 *ATENCIÓN - INCIDENCIAS EN REPORTE*\n\n`;
+      if (yaVotaron.length > 0) {
+        respuestaIncidencias += `⚠️ *Ya Habían Votado (${yaVotaron.length}):*\n`;
+        yaVotaron.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
+        respuestaIncidencias += `\n`;
+      }
+      if (noEncontrados.length > 0) {
+        respuestaIncidencias += `❌ *No Encontrados en Nómina (${noEncontrados.length}):*\n`;
+        noEncontrados.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
+      }
+      await ctx.reply(respuestaIncidencias, { parse_mode: "Markdown" });
+    }
+    return;
   });
 
   // 3. Cuando el bot es agregado a un grupo nuevo
@@ -174,8 +166,8 @@ export function registrarHandlers(bot: Bot): void {
         `🤖 *¡Bot de Votaciones Conectado a este Grupo!*\n\n` +
           `📛 *Grupo:* ${chatTitle}\n` +
           `🆔 *Chat ID:* \`${chatId}\`\n\n` +
-          `Para registrar votos escribe:\n` +
-          `👉 \`12345678 voto listo\`\n\n` +
+          `Para registrar votos escribe únicamente el número de cédula:\n` +
+          `👉 \`12345678\`\n\n` +
           `Para ver todos los comandos disponibles:\n` +
           `👉 \`/comandos\``,
         { parse_mode: "Markdown" }
