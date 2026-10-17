@@ -112,7 +112,7 @@ test("formatearReporteSEGEN estructura reporte por cargos y totalización", () =
   const msg = formatearReporteSEGEN(statsSegen, "10:00 AM");
   assert.match(msg, /NÓMINA SEGEN/);
   assert.match(msg, /TOTALIZACIÓN GENERAL SEGEN/);
-  assert.match(msg, /Padrón Total:\* 600 electores/);
+  assert.match(msg, /Nómina Total:\* 600 electores/);
   assert.match(msg, /PARTICIPACIÓN POR CARGOS/);
   assert.match(msg, /Director:\* 10\/10/);
   assert.match(msg, /Coordinador:\* 30\/50/);

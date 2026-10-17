@@ -131,7 +131,7 @@ export function formatearReporteSEGEN(
 
   // 1. Totalización General
   msg += `👥 *TOTALIZACIÓN GENERAL SEGEN:*\n`;
-  msg += `▪️ *Padrón Total:* ${stats.total.toLocaleString("es-VE")} electores\n`;
+  msg += `▪️ *Nómina Total:* ${stats.total.toLocaleString("es-VE")} electores\n`;
   msg += `▪️ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
   msg += `▪️ *Pendientes por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n\n`;
 
@@ -171,7 +171,7 @@ export function formatearReporteCorteSEGEN(
   const votosEnEsteCorte = stats.porCorte[corteEtiqueta] || 0;
 
   msg += `📊 *TOTALIZACIÓN SEGEN:*\n`;
-  msg += `👥 *Padrón Total:* ${stats.total.toLocaleString("es-VE")}\n`;
+  msg += `👥 *Nómina Total:* ${stats.total.toLocaleString("es-VE")}\n`;
   msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
   msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n`;
   msg += `🕒 *Votos recibidos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
@@ -203,7 +203,7 @@ export function formatearReporteINE(
 
   // 1. Totalización General
   msg += `👥 *TOTALIZACIÓN GENERAL INE:*\n`;
-  msg += `▪️ *Padrón Total:* ${stats.total.toLocaleString("es-VE")} electores\n`;
+  msg += `▪️ *Nómina Total:* ${stats.total.toLocaleString("es-VE")} electores\n`;
   msg += `▪️ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
   msg += `▪️ *Pendientes por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n\n`;
 
@@ -246,7 +246,7 @@ export function formatearReporteCorteINE(
   const cedulasEsteCorte = stats.cedulasPorCorte[corteEtiqueta] || [];
 
   msg += `📊 *TOTALIZACIÓN INE:*\n`;
-  msg += `👥 *Padrón Total:* ${stats.total.toLocaleString("es-VE")}\n`;
+  msg += `👥 *Nómina Total:* ${stats.total.toLocaleString("es-VE")}\n`;
   msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
   msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n`;
   msg += `🕒 *Votos recibidos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
