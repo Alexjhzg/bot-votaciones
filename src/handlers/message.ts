@@ -87,12 +87,17 @@ export function registrarHandlers(bot: Bot): void {
             { parse_mode: "Markdown" }
           );
         } else {
-          await ctx.reply(
-            `❌ *Cédula no encontrada en nómina*\n\nLa C.I. *V-${formatearCedula(
-              cedula
-            )}* no se encuentra en las listas oficiales (SEGEN / INE).`,
-            { parse_mode: "Markdown" }
-          );
+          // En grupos, solo responder "Cédula no encontrada" si el mensaje es corto (envío directo de cédula)
+          // o si tiene intención explícita de voto, para evitar interrumpir reportes de campo o conversaciones largas
+          const esMensajeDirecto = texto.length <= 40 || esIntencionVotoListo(texto);
+          if (!esGrupo || esMensajeDirecto) {
+            await ctx.reply(
+              `❌ *Cédula no encontrada en nómina*\n\nLa C.I. *V-${formatearCedula(
+                cedula
+              )}* no se encuentra en las listas oficiales (SEGEN / INE).`,
+              { parse_mode: "Markdown" }
+            );
+          }
         }
       } catch (err) {
         console.error(`[ERROR] Error procesando voto para ${cedula}:`, err);

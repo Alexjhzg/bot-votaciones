@@ -38,6 +38,18 @@ test("extraerCedulas obtiene cédulas únicas", () => {
 
   const t3 = "solo texto sin numeros";
   assert.deepEqual(extraerCedulas(t3), []);
+
+  // No debe capturar números de 5 dígitos ni códigos de nodo
+  const tNodo = "Municipio: Cedeño, Nodo: 16018, Total: 02";
+  assert.deepEqual(extraerCedulas(tNodo), []);
+
+  // Texto real de reporte de campo
+  const tReporte = `Formato de reporte y salida a campo
+   1. Municipio: Cedeño 
+   2. Nodo: 16018
+   3. Total de Verificadores en el nodo: 02
+   Bloque (1) 9am: 1`;
+  assert.deepEqual(extraerCedulas(tReporte), []);
 });
 
 test("normalizarTexto quita tildes y mayúsculas", () => {

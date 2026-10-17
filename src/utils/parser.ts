@@ -74,21 +74,25 @@ export function esIntencionVotoListo(texto: string): boolean {
 }
 
 /**
- * Extrae todos los números de cédula válidos (de 5 a 9 dígitos) contenidos en el texto.
+ * Extrae todos los números de cédula válidos (de 7 a 8 dígitos) contenidos en el texto.
+ * Excluye explícitamente códigos de nodo (ej: "Nodo: 16018" o números de 5 dígitos).
  */
 export function extraerCedulas(texto: string): string[] {
   if (!texto) return [];
 
-  // Expresión regular que captura cédulas con o sin prefijo V/E/J/G y con o sin puntos
-  const regex = /(?:^|[^\d])(?:[VvEePpJjGg][-\s]?)?(\d{1,2}(?:\.\d{3}){2}|\d{5,9})(?=[^\d]|$)/g;
+  // 1. Eliminar referencias a códigos de nodos (ej. "Nodo: 16018", "nodo 16018") para no confundirlos con cédulas
+  const textoLimpio = texto.replace(/\bnodos?\s*:?\s*\d+/gi, "");
+
+  // 2. Expresión regular que captura cédulas venezolanas válidas (7 a 8 dígitos) con o sin prefijo V/E y puntos
+  const regex = /(?:^|[^\d])(?:[VvEePpJjGg][-\s]?)?(\d{1,2}(?:\.\d{3}){2}|\d{7,8})(?=[^\d]|$)/g;
   const cedulasEncontradas: string[] = [];
 
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(texto)) !== null) {
+  while ((match = regex.exec(textoLimpio)) !== null) {
     const raw = match[1];
     const limpia = limpiarCedula(raw);
-    // Cédulas venezolanas válidas suelen tener entre 5 y 9 dígitos
-    if (limpia.length >= 5 && limpia.length <= 9) {
+    // Cédulas electorales venezolanas activas tienen entre 7 y 8 dígitos
+    if (limpia.length >= 7 && limpia.length <= 8) {
       if (!cedulasEncontradas.includes(limpia)) {
         cedulasEncontradas.push(limpia);
       }
