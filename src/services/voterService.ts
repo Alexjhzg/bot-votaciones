@@ -11,6 +11,7 @@ import {
   CORTES_ETIQUETAS,
 } from "../utils/parser.js";
 import { config } from "../config/index.js";
+import { voteQueue } from "./queue.js";
 
 export interface VoterRecord {
   cedula: string;
@@ -184,15 +185,21 @@ class VoterService {
   }
 
   /**
-   * Recarga los datos desde Google Sheets.
+  /**
+   * Recarga los datos desde Google Sheets protegiendo la ejecución a través de la cola.
    */
   public async recargar(): Promise<number> {
-    await this.inicializar();
-    return this.voters.size;
+    return voteQueue.add(
+      async () => {
+        await this.inicializar();
+        return this.voters.size;
+      },
+      { label: "Sincronización Nómina Sheets" }
+    );
   }
 
   /**
-   * Consulta los datos de un elector por cédula.
+   * Consulta los datos de un elector por cédula (lectura rápida en memoria).
    */
   public consultar(cedulaRaw: string): VoterRecord | null {
     const cedula = limpiarCedula(cedulaRaw);
@@ -200,8 +207,15 @@ class VoterService {
   }
 
   /**
-   * Registra el "voto listo" de un elector asignándole el corte horario oficial.
-   * Actualiza inmediatamente en memoria y persiste en Google Sheets de forma segura.
+   * Devuelve la cantidad de operaciones actualmente en cola de espera.
+   */
+  public getColaPendientes(): number {
+    return voteQueue.getPendingCount();
+  }
+
+  /**
+   * Registra el "voto listo" de un elector a través de la cola secuencial.
+   * Evita condiciones de carrera y previene pérdida de reportes simultáneos.
    */
   public async registrarVoto(
     cedulaRaw: string,
@@ -209,6 +223,22 @@ class VoterService {
     horaPersonalizada?: { horaStr: string; corte: string }
   ): Promise<RegistroResultado> {
     const cedula = limpiarCedula(cedulaRaw);
+    return voteQueue.add(
+      async () => {
+        return this.ejecutarRegistroVoto(cedula, remitente, horaPersonalizada);
+      },
+      { label: `Registro Voto C.I. ${cedula}` }
+    );
+  }
+
+  /**
+   * Lógica interna atómica de registro de voto (ejecutada dentro de la cola).
+   */
+  private async ejecutarRegistroVoto(
+    cedula: string,
+    remitente: string,
+    horaPersonalizada?: { horaStr: string; corte: string }
+  ): Promise<RegistroResultado> {
     const voter = this.voters.get(cedula);
 
     if (!voter) {
@@ -242,7 +272,7 @@ class VoterService {
       corteFinal = corte.etiqueta;
     }
 
-    // Actualizar en memoria primero (respuesta instantánea)
+    // Actualizar en memoria primero (protege contra reintentos concurrentes)
     voter.haVotado = true;
     voter.corte = corteFinal;
     voter.fechaHoraVoto = horaFinal;
@@ -256,11 +286,11 @@ class VoterService {
       voter.rowRef.set(voter.mapping.reportadoPorKey, remitente);
       await voter.rowRef.save();
       console.log(
-        `[INFO] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Corte: ${corteFinal}`
+        `[INFO] [COLA] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Corte: ${corteFinal}`
       );
     } catch (err) {
-      console.error(`[ERROR] Falló al guardar el voto en Google Sheets para C.I. ${cedula}:`, err);
-      // Revertir memoria si falló la persistencia
+      console.error(`[ERROR] [COLA] Falló al guardar el voto en Google Sheets para C.I. ${cedula}:`, err);
+      // Revertir memoria si falló la persistencia definitiva
       voter.haVotado = false;
       voter.corte = null;
       voter.fechaHoraVoto = null;
@@ -276,13 +306,28 @@ class VoterService {
   }
 
   /**
-   * Deshace el registro de voto en caso de equivocación de un usuario.
+   * Deshace el registro de voto a través de la cola secuencial.
    */
   public async deshacerVoto(
     cedulaRaw: string,
     remitente: string
   ): Promise<{ status: "SUCCESS" | "NOT_FOUND" | "NOT_VOTED"; voter?: VoterRecord }> {
     const cedula = limpiarCedula(cedulaRaw);
+    return voteQueue.add(
+      async () => {
+        return this.ejecutarDeshacerVoto(cedula, remitente);
+      },
+      { label: `Deshacer Voto C.I. ${cedula}` }
+    );
+  }
+
+  /**
+   * Lógica interna atómica de deshacer voto (ejecutada dentro de la cola).
+   */
+  private async ejecutarDeshacerVoto(
+    cedula: string,
+    remitente: string
+  ): Promise<{ status: "SUCCESS" | "NOT_FOUND" | "NOT_VOTED"; voter?: VoterRecord }> {
     const voter = this.voters.get(cedula);
 
     if (!voter) return { status: "NOT_FOUND" };
@@ -299,9 +344,9 @@ class VoterService {
       voter.rowRef.set(voter.mapping.corteKey, "");
       voter.rowRef.set(voter.mapping.reportadoPorKey, `Deshecho por ${remitente}`);
       await voter.rowRef.save();
-      console.log(`[INFO] Voto deshecho en Sheets para C.I. ${cedula}`);
+      console.log(`[INFO] [COLA] Voto deshecho en Sheets para C.I. ${cedula}`);
     } catch (err) {
-      console.error(`[ERROR] Falló al deshacer voto en Google Sheets para C.I. ${cedula}:`, err);
+      console.error(`[ERROR] [COLA] Falló al deshacer voto en Google Sheets para C.I. ${cedula}:`, err);
       voter.haVotado = true; // revertir en memoria
       throw err;
     }

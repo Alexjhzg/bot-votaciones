@@ -43,19 +43,23 @@ El bot está desarrollado en **Node.js con TypeScript**, priorizando la velocida
                  ▼
      [ Bot Telegram (Grammy) ]
                  │
+                 ▼
+   [ Cola de Procesos (AsyncQueue) ] ──▶ Control de Concurrencia FIFO y Reintentos
+                 │
   ┌──────────────┴──────────────┐
-  │  (En Memoria - Fast Read)   │ (Persistencia en Google Sheets)
+  │  (En Memoria - Fast Read)   │ (Persistencia Secuencial Atómica)
   ▼                             ▼
 [ voterService / padrón ]  ──▶  [ Google Sheets API v4 (Service Account) ]
         │
         ├──▶ Registro de Voto y Auditoría (Hora, Corte, Remitente)
-        ├──▶ Prevención de Votos Duplicados
+        ├──▶ Prevención de Condiciones de Carrera y Duplicados
         ├──▶ Cálculos de Avance y Porcentajes
         └──▶ Cronjobs de Cortes (Zona: America/Caracas)
 ```
 
-### Tecnologías:
+### Tecnologías y Componentes Clave:
 * **Lenguaje:** TypeScript / Node.js (v20+).
+* **Cola de Procesos (`AsyncQueue`):** Gestor FIFO de operaciones concurrentes. Garantiza que múltiples reportes simultáneos se procesen en orden estricto, previniendo saturación de cuota de Google Sheets (error 429) y reintentando automáticamente con retroceso exponencial ante fallos de red.
 * **Framework Bot:** `grammy` (soporte para comandos, middleware de registro y control de rate limits).
 * **Base de Datos / Padrón:** `googleapis` conectando vía cuenta de servicio con permisos de edición a Google Sheets.
 * **Planificador de Tareas:** `croner` para ejecución de cronjobs con soporte nativo de husos horarios (`America/Caracas`).
