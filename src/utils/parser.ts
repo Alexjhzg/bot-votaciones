@@ -243,17 +243,13 @@ export function parsearHoraTexto(horaRaw: string): {
 }
 
 /**
- * Detecta si un mensaje corresponde al formato estructurado de reporte de votos.
+ * Detecta si un mensaje corresponde al formato oficial estructurado de reporte de votos.
+ * Solo se activa si el texto incluye explícitamente "formato de reporte de voto" (o variantes como "de votos").
  */
 export function esFormatoReporte(texto: string): boolean {
   if (!texto) return false;
   const norm = normalizarTexto(texto);
-  return (
-    norm.includes("formato de reporte") ||
-    /\b1\s*[\.\-\)]\s*nodos?\b/i.test(norm) ||
-    /\b2\s*[\.\-\)]\s*cedulas?\b/i.test(norm) ||
-    (/\bnodos?\s*:/i.test(norm) && /\bcedulas?\s*:/i.test(norm))
-  );
+  return /\bformato\s+(?:de\s+)?reportes?\s+(?:de\s+|del\s+)?votos?\b/i.test(norm);
 }
 
 export interface ResultadoParseoReporteVoto {

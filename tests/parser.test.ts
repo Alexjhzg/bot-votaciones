@@ -8,6 +8,7 @@ import {
   normalizarTexto,
   determinarCortePorHora,
   parsearHoraTexto,
+  esFormatoReporte,
   parsearReporteVoto,
 } from "../src/utils/parser.js";
 
@@ -176,3 +177,33 @@ test("parsearReporteVoto detecta errores cuando colocan mal el formato", () => {
   assert.equal(resCorta.esValido, false);
   assert.equal(resCorta.errores.some((e) => e.includes("demasiado corto")), true);
 });
+
+test("esFormatoReporte solo se activa cuando dice formato de reporte de voto", () => {
+  // Casos válidos que deben reconocerse como formato de reporte de votos
+  assert.equal(esFormatoReporte("Formato de reporte de voto"), true);
+  assert.equal(esFormatoReporte("Formato de reporte de votos"), true);
+  assert.equal(esFormatoReporte("FORMATO DE REPORTE DE VOTO"), true);
+  assert.equal(esFormatoReporte("Formato reporte de voto"), true);
+  assert.equal(esFormatoReporte("Formato de reporte del voto"), true);
+
+  // Casos que NO deben reconocerse (otros tipos de reportes o estructuras de campo)
+  assert.equal(esFormatoReporte("Formato de reporte de verificadores"), false);
+  assert.equal(esFormatoReporte("Formato de reporte"), false);
+  assert.equal(esFormatoReporte("Formato de reporte de incidencias"), false);
+  assert.equal(esFormatoReporte("Formato de reporte de apertura de mesas"), false);
+
+  const reporteVerificadores = `Formato de reporte
+1. Municipio: Maturin
+2. Nodo: 16066
+Total Verificadores en el nodo: 04
+➡️Bloque (1) 9am: 0
+➡️Bloque (2) 2pm: 02
+➡️Bloque (3) 6pm: 0`;
+
+  assert.equal(esFormatoReporte(reporteVerificadores), false);
+  const parsed = parsearReporteVoto(reporteVerificadores);
+  assert.equal(parsed.esFormatoReporte, false);
+  assert.equal(parsed.esValido, false);
+  assert.equal(parsed.errores.length, 0);
+});
+

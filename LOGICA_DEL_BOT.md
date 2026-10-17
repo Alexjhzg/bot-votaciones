@@ -132,7 +132,7 @@ Al arrancar o al registrar el primer voto, si no existen en la hoja, el bot crea
   3. Hora: 10:00 AM
   ```
 * **Lógica y Validaciones:**
-  1. `esFormatoReporte(texto)` detecta el encabezado o estructura numerada (`1. Nodo`, `2. Cédula`, `3. Hora`).
+  1. `esFormatoReporte(texto)` detecta explícitamente el encabezado oficial `Formato de reporte de voto` (o `Formato de reporte de votos`). Esto previene falsos positivos con otros formatos de campo (verificadores, apertura, incidencias).
   2. `parsearReporteVoto(texto)` valida cada uno de los campos:
      * **`1. Nodo:`** Obligatorio. Debe contener el número o nombre del nodo.
      * **`2. Cédula:`** Obligatorio. Extrae todas las cédulas listadas (de 7 a 8 dígitos). Si se dejan ceros de plantilla (`00000000`) o números incompletos, genera alerta inmediata.
