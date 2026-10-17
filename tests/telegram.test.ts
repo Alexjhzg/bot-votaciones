@@ -13,6 +13,7 @@ import {
   formatearDetalleUnidad,
   formatearReporteTodasUnidades,
 } from "../src/utils/telegram.js";
+import { config } from "../src/config/index.js";
 import { VoterRecord, EstadisticasNomina, EstadisticasNominaIndividual } from "../src/services/voterService.js";
 
 const mockVoter: VoterRecord = {
@@ -255,4 +256,9 @@ test("formatearReporteTodasUnidades lista avance por unidad", () => {
   assert.match(texto, /REPORTE DE PARTICIPACIÓN POR UNIDADES/);
   assert.match(texto, /Económica/);
   assert.match(texto, /Juan/);
+});
+
+test("configuración de grupos contiene los IDs dedicados de SEGEN e INE", () => {
+  assert.equal(config.telegram.segenChatId, "-1003785032543");
+  assert.equal(config.telegram.ineChatId, "-4562387860");
 });
