@@ -205,7 +205,8 @@ class VoterService {
    */
   public async registrarVoto(
     cedulaRaw: string,
-    remitente: string
+    remitente: string,
+    horaPersonalizada?: { horaStr: string; corte: string }
   ): Promise<RegistroResultado> {
     const cedula = limpiarCedula(cedulaRaw);
     const voter = this.voters.get(cedula);
@@ -227,25 +228,35 @@ class VoterService {
       };
     }
 
-    // Hora y corte horario oficial activo
-    const { horaStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
-    const corte = determinarCortePorHora(hora24, minuto);
+    // Hora y corte horario oficial activo (o personalizado si proviene de un reporte formal)
+    let horaFinal: string;
+    let corteFinal: string;
+
+    if (horaPersonalizada) {
+      horaFinal = horaPersonalizada.horaStr;
+      corteFinal = horaPersonalizada.corte;
+    } else {
+      const { horaStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
+      const corte = determinarCortePorHora(hora24, minuto);
+      horaFinal = horaStr;
+      corteFinal = corte.etiqueta;
+    }
 
     // Actualizar en memoria primero (respuesta instantánea)
     voter.haVotado = true;
-    voter.corte = corte.etiqueta;
-    voter.fechaHoraVoto = horaStr;
+    voter.corte = corteFinal;
+    voter.fechaHoraVoto = horaFinal;
     voter.reportadoPor = remitente;
 
     // Persistir de inmediato en Google Sheets
     try {
       voter.rowRef.set(voter.mapping.votoKey, "SI");
-      voter.rowRef.set(voter.mapping.fechaHoraKey, horaStr);
-      voter.rowRef.set(voter.mapping.corteKey, corte.etiqueta);
+      voter.rowRef.set(voter.mapping.fechaHoraKey, horaFinal);
+      voter.rowRef.set(voter.mapping.corteKey, corteFinal);
       voter.rowRef.set(voter.mapping.reportadoPorKey, remitente);
       await voter.rowRef.save();
       console.log(
-        `[INFO] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Corte: ${corte.etiqueta}`
+        `[INFO] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Corte: ${corteFinal}`
       );
     } catch (err) {
       console.error(`[ERROR] Falló al guardar el voto en Google Sheets para C.I. ${cedula}:`, err);

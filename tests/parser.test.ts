@@ -7,6 +7,8 @@ import {
   extraerCedulas,
   normalizarTexto,
   determinarCortePorHora,
+  parsearHoraTexto,
+  parsearReporteVoto,
 } from "../src/utils/parser.js";
 
 test("limpiarCedula extrae solo dígitos numéricos", () => {
@@ -87,4 +89,90 @@ test("determinarCortePorHora asigna correctamente los 7 cortes oficiales", () =>
 
   // Post 7:00 PM
   assert.equal(determinarCortePorHora(19, 30).etiqueta, "Cierre (Post-7:00 PM)");
+});
+
+test("parsearHoraTexto interpreta horas 12h y 24h", () => {
+  const h1 = parsearHoraTexto("8:45 AM");
+  assert.equal(h1?.hora24, 8);
+  assert.equal(h1?.minuto, 45);
+  assert.equal(h1?.horaStr, "08:45:00 AM");
+
+  const h2 = parsearHoraTexto("10:15 am");
+  assert.equal(h2?.hora24, 10);
+  assert.equal(h2?.minuto, 15);
+  assert.equal(h2?.horaStr, "10:15:00 AM");
+
+  const h3 = parsearHoraTexto("2:30 pm");
+  assert.equal(h3?.hora24, 14);
+  assert.equal(h3?.minuto, 30);
+  assert.equal(h3?.horaStr, "02:30:00 PM");
+
+  const h4 = parsearHoraTexto("14:20");
+  assert.equal(h4?.hora24, 14);
+  assert.equal(h4?.minuto, 20);
+  assert.equal(h4?.horaStr, "02:20:00 PM");
+
+  const h5 = parsearHoraTexto("10am");
+  assert.equal(h5?.hora24, 10);
+  assert.equal(h5?.minuto, 0);
+
+  // Inválidas
+  assert.equal(parsearHoraTexto("mediodia"), null);
+  assert.equal(parsearHoraTexto("25:00"), null);
+  assert.equal(parsearHoraTexto("10:75"), null);
+});
+
+test("parsearReporteVoto detecta formato válido y asigna cortes", () => {
+  const msg = `Formato de reporte de voto
+1. Nodo: 16018 - Maturín
+2. Cédula: 
+V-18.456.123
+V-20.145.896
+3. Hora: 10:15 AM`;
+
+  const res = parsearReporteVoto(msg);
+  assert.equal(res.esFormatoReporte, true);
+  assert.equal(res.esValido, true);
+  assert.equal(res.nodo, "16018 - Maturín");
+  assert.deepEqual(res.cedulas, ["18456123", "20145896"]);
+  assert.equal(res.horaInfo?.horaStr, "10:15:00 AM");
+  assert.equal(res.horaInfo?.corte, "12:00 PM");
+  assert.equal(res.errores.length, 0);
+});
+
+test("parsearReporteVoto detecta errores cuando colocan mal el formato", () => {
+  // 1. Plantilla vacía con ceros
+  const msgVacio = `Formato de reporte de voto
+1. Nodo:
+2. Cédula: 
+00000000
+00000000
+3. Hora:`;
+
+  const resVacio = parsearReporteVoto(msgVacio);
+  assert.equal(resVacio.esFormatoReporte, true);
+  assert.equal(resVacio.esValido, false);
+  assert.equal(resVacio.errores.some((e) => e.includes("Nodo")), true);
+  assert.equal(resVacio.errores.some((e) => e.includes("ceros de ejemplo")), true);
+  assert.equal(resVacio.errores.some((e) => e.includes("Hora")), true);
+
+  // 2. Falta la hora
+  const msgSinHora = `Formato de reporte de voto
+1. Nodo: 16018
+2. Cédula: 
+18456123
+3. Hora:`;
+  const resSinHora = parsearReporteVoto(msgSinHora);
+  assert.equal(resSinHora.esValido, false);
+  assert.equal(resSinHora.errores.some((e) => e.includes("Hora")), true);
+
+  // 3. Cédula inválida (demasiado corta)
+  const msgCedulaCorta = `Formato de reporte de voto
+1. Nodo: 16018
+2. Cédula: 
+12345
+3. Hora: 10:00 AM`;
+  const resCorta = parsearReporteVoto(msgCedulaCorta);
+  assert.equal(resCorta.esValido, false);
+  assert.equal(resCorta.errores.some((e) => e.includes("demasiado corto")), true);
 });

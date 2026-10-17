@@ -4,12 +4,15 @@ import {
   extraerCedulas,
   esIntencionVotoListo,
   formatearCedula,
+  esFormatoReporte,
+  parsearReporteVoto,
 } from "../utils/parser.js";
 import {
   obtenerNombreRemitente,
   formatearTarjetaElector,
   formatearConfirmacionVoto,
   formatearAlertaYaVoto,
+  formatearAlertaFormatoInvalido,
 } from "../utils/telegram.js";
 import { registrarComandos } from "./commands.js";
 
@@ -28,16 +31,85 @@ export function registrarHandlers(bot: Bot): void {
     // Si comienza con "/", es un comando ya gestionado por Grammy
     if (texto.startsWith("/")) return;
 
+    const remitente = obtenerNombreRemitente(ctx);
+    const esGrupo = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
+    const origenDesc = esGrupo && "title" in ctx.chat ? `Grupo "${(ctx.chat as any).title}" (${ctx.chat.id})` : `Privado (${ctx.chat?.id})`;
+
+    // ==========================================================
+    // 2.1 VERIFICAR FORMATO ESTRUCTURADO DE REPORTE (NODO / CÉDULA / HORA)
+    // ==========================================================
+    if (esFormatoReporte(texto)) {
+      const parsed = parsearReporteVoto(texto);
+
+      // Si el formato contiene errores (faltó nodo, faltó hora, ceros de plantilla, etc.)
+      if (!parsed.esValido) {
+        console.warn(`[WARN] [${origenDesc}] Formato de reporte incorrecto de ${remitente}:`, parsed.errores);
+        await ctx.reply(formatearAlertaFormatoInvalido(parsed.errores), {
+          parse_mode: "Markdown",
+        });
+        return;
+      }
+
+      // El formato es válido: registrar con la hora y corte reportados oficialmente
+      console.log(
+        `[INFO] [${origenDesc}] Reporte de voto válido para Nodo "${parsed.nodo}" (${remitente}): [${parsed.cedulas.join(", ")}] - Hora: ${parsed.horaInfo?.horaStr} [${parsed.horaInfo?.corte}]`
+      );
+
+      const horaPersonalizada = parsed.horaInfo
+        ? { horaStr: parsed.horaInfo.horaStr, corte: parsed.horaInfo.corte }
+        : undefined;
+
+      const exitosos: string[] = [];
+      const yaVotaron: string[] = [];
+      const noEncontrados: string[] = [];
+
+      for (const cedula of parsed.cedulas) {
+        try {
+          const res = await voterService.registrarVoto(cedula, remitente, horaPersonalizada);
+          if (res.status === "SUCCESS" && res.voter) {
+            exitosos.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
+          } else if (res.status === "ALREADY_VOTED" && res.voter) {
+            yaVotaron.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
+          } else {
+            noEncontrados.push(`V-${formatearCedula(cedula)}`);
+          }
+        } catch (err) {
+          console.error(`[ERROR] Error procesando reporte para ${cedula}:`, err);
+        }
+      }
+
+      // Reacción de confirmación si hubo votos registrados con éxito
+      if (exitosos.length > 0) {
+        try {
+          await ctx.react("👍");
+        } catch {
+          // Silencioso si el chat no permite reacciones
+        }
+      }
+
+      // Reportar incidencias (ya votaron o no encontrados en nómina)
+      if (yaVotaron.length > 0 || noEncontrados.length > 0) {
+        let respuestaIncidencias = `📋 *ATENCIÓN - INCIDENCIAS EN REPORTE DE NODO (${parsed.nodo || "Sin nodo"})*\n\n`;
+        if (yaVotaron.length > 0) {
+          respuestaIncidencias += `⚠️ *Ya Habían Votado (${yaVotaron.length}):*\n`;
+          yaVotaron.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
+          respuestaIncidencias += `\n`;
+        }
+        if (noEncontrados.length > 0) {
+          respuestaIncidencias += `❌ *No Encontrados en Nómina (${noEncontrados.length}):*\n`;
+          noEncontrados.forEach((e) => (respuestaIncidencias += `▪️ ${e}\n`));
+        }
+        await ctx.reply(respuestaIncidencias, { parse_mode: "Markdown" });
+      }
+      return;
+    }
+
     // Extraer cédulas presentes en el mensaje
     const cedulas = extraerCedulas(texto);
     if (cedulas.length === 0) {
       // Mensaje de conversación común sin números de cédula, ignorar silenciosamente
       return;
     }
-
-    const remitente = obtenerNombreRemitente(ctx);
-    const esGrupo = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
-    const origenDesc = esGrupo && "title" in ctx.chat ? `Grupo "${(ctx.chat as any).title}" (${ctx.chat.id})` : `Privado (${ctx.chat?.id})`;
 
     // Si el usuario pide explícitamente consultar datos sin marcar voto
     const esConsultaExplicita = /^\s*(consulta|consultar|donde|info|quien)\b/i.test(texto);

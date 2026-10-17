@@ -187,3 +187,200 @@ export function obtenerCorteActivoActual(timezone: string = "America/Caracas"): 
     horaActualStr: horaStr,
   };
 }
+
+/**
+ * Parsea un texto de hora en formato 12h o 24h y devuelve sus componentes numéricos y formato estético.
+ * Ejemplos: "8:45 AM", "10:15 am", "14:20", "2:30 pm", "10am", "10:00"
+ */
+export function parsearHoraTexto(horaRaw: string): {
+  hora24: number;
+  minuto: number;
+  horaStr: string;
+} | null {
+  if (!horaRaw) return null;
+  // Normalizar: quitar espacios adicionales, minúsculas, limpiar 'a.m.' o 'p. m.'
+  const limpia = horaRaw
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/([ap])\s*\.?\s*m\.?/i, "$1m");
+
+  // 1. Formato 12 horas con am/pm: "8:45 am", "8:45am", "8am", "08:45 am", "2:15 pm"
+  const regex12 = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i;
+  const match12 = limpia.match(regex12);
+  if (match12) {
+    let h = parseInt(match12[1], 10);
+    const m = match12[2] ? parseInt(match12[2], 10) : 0;
+    const meridiano = match12[3];
+
+    if (h < 1 || h > 12 || m < 0 || m > 59) return null;
+
+    if (meridiano === "pm" && h < 12) h += 12;
+    if (meridiano === "am" && h === 12) h = 0;
+
+    const periodo = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    const formatted = `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")}:00 ${periodo}`;
+    return { hora24: h, minuto: m, horaStr: formatted };
+  }
+
+  // 2. Formato 24 horas: "14:30", "08:45", "10:15", "8:00"
+  const regex24 = /^(\d{1,2}):(\d{2})$/;
+  const match24 = limpia.match(regex24);
+  if (match24) {
+    const h = parseInt(match24[1], 10);
+    const m = parseInt(match24[2], 10);
+
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+
+    const periodo = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    const formatted = `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")}:00 ${periodo}`;
+    return { hora24: h, minuto: m, horaStr: formatted };
+  }
+
+  return null;
+}
+
+/**
+ * Detecta si un mensaje corresponde al formato estructurado de reporte de votos.
+ */
+export function esFormatoReporte(texto: string): boolean {
+  if (!texto) return false;
+  const norm = normalizarTexto(texto);
+  return (
+    norm.includes("formato de reporte") ||
+    /\b1\s*[\.\-\)]\s*nodos?\b/i.test(norm) ||
+    /\b2\s*[\.\-\)]\s*cedulas?\b/i.test(norm) ||
+    (/\bnodos?\s*:/i.test(norm) && /\bcedulas?\s*:/i.test(norm))
+  );
+}
+
+export interface ResultadoParseoReporteVoto {
+  esFormatoReporte: boolean;
+  esValido: boolean;
+  nodo: string | null;
+  cedulas: string[];
+  horaInfo: {
+    horaRaw: string;
+    hora24: number;
+    minuto: number;
+    horaStr: string;
+    corte: string;
+  } | null;
+  errores: string[];
+}
+
+/**
+ * Analiza un reporte de voto estructurado, valida sus campos y extrae nodo, cédulas y hora/corte.
+ */
+export function parsearReporteVoto(texto: string): ResultadoParseoReporteVoto {
+  const esReporte = esFormatoReporte(texto);
+  if (!esReporte) {
+    return {
+      esFormatoReporte: false,
+      esValido: false,
+      nodo: null,
+      cedulas: [],
+      horaInfo: null,
+      errores: [],
+    };
+  }
+
+  const errores: string[] = [];
+
+  // 1. Validar Nodo (Horizontal whitespace only to avoid jumping newlines)
+  const nodoMatch = texto.match(/(?:^|[\r\n])[ \t]*(?:1[ \t]*[\.\-\)][ \t]*)?nodos?[ \t]*:[ \t]*([^\r\n]*)/i);
+  let nodo: string | null = null;
+  if (!nodoMatch || !nodoMatch[1].trim()) {
+    errores.push("Falta indicar el número o nombre del Nodo en `1. Nodo:` (Ej: `1. Nodo: 16018`).");
+  } else {
+    nodo = nodoMatch[1].trim();
+  }
+
+  // 2. Validar Hora
+  const horaMatch = texto.match(/(?:^|[\r\n])[ \t]*(?:3[ \t]*[\.\-\)][ \t]*)?hora[ \t]*:[ \t]*([^\r\n]*)/i);
+  let horaInfo: {
+    horaRaw: string;
+    hora24: number;
+    minuto: number;
+    horaStr: string;
+    corte: string;
+  } | null = null;
+
+  if (!horaMatch || !horaMatch[1].trim()) {
+    errores.push("Falta indicar la hora en `3. Hora:` (Ej: `3. Hora: 10:00 AM` o `3. Hora: 14:30`).");
+  } else {
+    const rawHora = horaMatch[1].trim();
+    const parsedH = parsearHoraTexto(rawHora);
+    if (!parsedH) {
+      errores.push("La hora no tiene un formato válido (Ej: `10:00 AM` o `14:30`).");
+    } else {
+      const corte = determinarCortePorHora(parsedH.hora24, parsedH.minuto);
+      horaInfo = {
+        horaRaw: rawHora,
+        hora24: parsedH.hora24,
+        minuto: parsedH.minuto,
+        horaStr: parsedH.horaStr,
+        corte: corte.etiqueta,
+      };
+    }
+  }
+
+  // 3. Validar Cédulas
+  // Aislar sección entre '2. Cédula:' y '3. Hora:'
+  const seccionCedulaMatch = texto.match(
+    /(?:2[ \t]*[\.\-\)][ \t]*)?c[eé]dulas?[ \t]*:[ \t]*([\s\S]*?)(?=(?:3[ \t]*[\.\-\)][ \t]*)?hora[ \t]*:|$)/i
+  );
+  const seccionCedula = seccionCedulaMatch ? seccionCedulaMatch[1] : texto;
+
+  // Detectar si dejaron ceros de plantilla
+  if (/0{6,8}/.test(seccionCedula)) {
+    errores.push("Se detectaron ceros de ejemplo (`00000000`). Debes sustituirlos por cédulas reales.");
+  }
+
+  // Extraer cédulas válidas (7 a 8 dígitos)
+  const regexCedulas = /(?:^|[^\d])(?:[VvEePpJjGg][-\s]?)?(\d{1,2}(?:\.\d{3}){2}|\d{7,8})(?=[^\d]|$)/g;
+  const cedulas: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = regexCedulas.exec(seccionCedula)) !== null) {
+    const limpia = limpiarCedula(m[1]);
+    if (limpia.length >= 7 && limpia.length <= 8 && !/^0+$/.test(limpia)) {
+      if (!cedulas.includes(limpia)) {
+        cedulas.push(limpia);
+      }
+    }
+  }
+
+  if (cedulas.length === 0 && !/0{6,8}/.test(seccionCedula)) {
+    errores.push("No se encontró ninguna cédula válida (deben tener entre 7 y 8 dígitos).");
+  }
+
+  // Detectar posibles números inválidos escritos en la sección de cédula
+  const lineasCedula = seccionCedula.split(/[\r\n]+/);
+  for (const linea of lineasCedula) {
+    const lTrim = linea.trim();
+    if (!lTrim) continue;
+    if (/0{6,8}/.test(lTrim)) continue;
+
+    // Si la línea ya tiene cédula(s) válida(s), ignorar
+    const regexValida = /(?:^|[^\d])(?:[VvEePpJjGg][-\s]?)?(\d{1,2}(?:\.\d{3}){2}|\d{7,8})(?=[^\d]|$)/;
+    if (regexValida.test(lTrim)) continue;
+
+    const digitos = lTrim.replace(/\D/g, "");
+    if (digitos.length > 0 && digitos.length < 7) {
+      errores.push(`El dato "${lTrim}" es demasiado corto para ser una cédula (debe tener entre 7 y 8 dígitos).`);
+    } else if (digitos.length > 8) {
+      errores.push(`El dato "${lTrim}" tiene demasiados dígitos para ser una cédula.`);
+    }
+  }
+
+  return {
+    esFormatoReporte: true,
+    esValido: errores.length === 0,
+    nodo,
+    cedulas,
+    horaInfo,
+    errores,
+  };
+}

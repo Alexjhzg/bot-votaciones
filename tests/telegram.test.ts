@@ -12,6 +12,7 @@ import {
   obtenerReportesCorteSeparados,
   formatearDetalleUnidad,
   formatearReporteTodasUnidades,
+  formatearAlertaFormatoInvalido,
 } from "../src/utils/telegram.js";
 import { config } from "../src/config/index.js";
 import { VoterRecord, EstadisticasNomina, EstadisticasNominaIndividual } from "../src/services/voterService.js";
@@ -261,4 +262,17 @@ test("formatearReporteTodasUnidades lista avance por unidad", () => {
 test("configuración de grupos contiene los IDs dedicados de SEGEN e INE", () => {
   assert.equal(config.telegram.segenChatId, "-1003785032543");
   assert.equal(config.telegram.ineChatId, "-4562387860");
+});
+
+test("formatearAlertaFormatoInvalido genera mensaje con errores y plantilla", () => {
+  const errores = [
+    "Falta indicar el número o nombre del Nodo en `1. Nodo:` (Ej: `1. Nodo: 16018`).",
+    "Se detectaron ceros de ejemplo (`00000000`). Debes sustituirlos por cédulas reales.",
+  ];
+
+  const alerta = formatearAlertaFormatoInvalido(errores);
+  assert.match(alerta, /FORMATO DE REPORTE INCORRECTO/);
+  assert.match(alerta, /Falta indicar el número o nombre del Nodo/);
+  assert.match(alerta, /ceros de ejemplo/);
+  assert.match(alerta, /Formato de reporte de voto/);
 });

@@ -117,7 +117,29 @@ Al arrancar o al registrar el primer voto, si no existen en la hoja, el bot crea
      * Responde confirmación exitosa con la tarjeta del elector.
 * **Procesamiento Masivo:** Si un usuario envía múltiples cédulas en un solo mensaje acompañadas de la frase "voto listo", el bot las procesa una por una secuencialmente y responde el estatus de cada una.
 
-### B. Consulta Rápida de Centro de Votación
+### B. Formato Estructurado de Reporte de Voto (SEGEN / Supervisores de Nodo)
+* **Plantilla oficial:**
+  ```text
+  Formato de reporte de voto
+  1. Nodo: 16018
+  2. Cédula: 
+  12345678
+  23456789
+  3. Hora: 10:00 AM
+  ```
+* **Lógica y Validaciones:**
+  1. `esFormatoReporte(texto)` detecta el encabezado o estructura numerada (`1. Nodo`, `2. Cédula`, `3. Hora`).
+  2. `parsearReporteVoto(texto)` valida cada uno de los campos:
+     * **`1. Nodo:`** Obligatorio. Debe contener el número o nombre del nodo.
+     * **`2. Cédula:`** Obligatorio. Extrae todas las cédulas listadas (de 7 a 8 dígitos). Si se dejan ceros de plantilla (`00000000`) o números incompletos, genera alerta inmediata.
+     * **`3. Hora:`** Obligatorio. Acepta formatos de 12 horas con am/pm (ej: `10:15 am`, `2:30 pm`) o militar 24h (ej: `14:20`). Calcula el corte oficial correspondiente al horario indicado.
+  3. **Alertas por Formato Incorrecto:**
+     * Si el reporte viene incompleto o mal escrito, el bot **NO** registra votos incompletos y responde de inmediato con una alerta detallando cada error específico y mostrando el ejemplo correcto a copiar.
+  4. **Registro Exitoso:**
+     * Si todo es correcto, registra los votos en Google Sheets con la hora y corte reportados y reacciona con 👍 al mensaje.
+     * Si alguna cédula ya había votado o no existe en la nómina, emite el reporte de incidencias indicando el nodo.
+
+### C. Consulta Rápida de Centro de Votación
 * **Entrada:** `12345678` (solo el número de cédula).
 * **Lógica:**
   * Busca la cédula en las nóminas SEGEN e INE.

@@ -427,3 +427,25 @@ export function formatearReporteTodasUnidades(unidades: DetalleUnidadData[]): st
 
   return msg;
 }
+
+/**
+ * Genera la alerta cuando se envía el formato oficial de reporte de voto con errores.
+ */
+export function formatearAlertaFormatoInvalido(errores: string[]): string {
+  let msg = `⚠️ *FORMATO DE REPORTE INCORRECTO*\n\n`;
+  msg += `El bot no pudo procesar tu reporte por los siguientes motivos:\n\n`;
+  for (const err of errores) {
+    msg += `❌ ${err}\n`;
+  }
+  msg += `\n📋 *Formato oficial que debes enviar:*\n`;
+  msg += `\`\`\`text\n`;
+  msg += `Formato de reporte de voto\n`;
+  msg += `1. Nodo: 16018\n`;
+  msg += `2. Cédula:\n`;
+  msg += `12345678\n`;
+  msg += `23456789\n`;
+  msg += `3. Hora: 10:00 AM\n`;
+  msg += `\`\`\`\n`;
+  msg += `💡 _Por favor, corrige los datos y vuelve a enviar el reporte completo._`;
+  return msg;
+}
