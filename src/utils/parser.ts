@@ -249,6 +249,16 @@ export function parsearHoraTexto(horaRaw: string): {
 export function esFormatoReporte(texto: string): boolean {
   if (!texto) return false;
   const norm = normalizarTexto(texto);
+
+  // Exclusión explícita de otros formatos de campo (verificadores, salida a campo, apertura de mesas)
+  if (
+    norm.includes("salida a campo") ||
+    norm.includes("verificador") ||
+    norm.includes("apertura")
+  ) {
+    return false;
+  }
+
   return /\bformato\s+(?:de\s+)?reportes?\s+(?:de\s+|del\s+)?votos?\b/i.test(norm);
 }
 

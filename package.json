@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "prestart": "npm run build",
     "start": "node dist/bot.js",
     "dev": "tsx watch src/bot.ts",
     "test": "tsx --test"
@@ -14,6 +15,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@types/node": "^22.5.4",
     "croner": "^10.0.1",
     "dotenv": "^16.4.5",
     "google-auth-library": "^9.11.0",
@@ -21,8 +23,5 @@
     "grammy": "^1.27.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4"
-  },
-  "devDependencies": {
-    "@types/node": "^22.5.4"
   }
 }

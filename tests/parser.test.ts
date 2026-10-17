@@ -205,5 +205,24 @@ Total Verificadores en el nodo: 04
   assert.equal(parsed.esFormatoReporte, false);
   assert.equal(parsed.esValido, false);
   assert.equal(parsed.errores.length, 0);
+
+  // Caso real de reporte de salida a campo (verificadores)
+  const reporteSalidaCampo = `Buenas
+Formato de reporte salida a campo
+   *1. Municipio:Uracoa
+   *2. Nodo:* 16088
+   
+*Total Verificadores en el nodo:* 02
+
+ ➡️*Bloque (1) 9am:
+ ➡️*Bloque (2) 2pm:
+ ➡️*Bloque (3) 6pm1`;
+
+  assert.equal(esFormatoReporte(reporteSalidaCampo), false);
+  const parsedSalidaCampo = parsearReporteVoto(reporteSalidaCampo);
+  assert.equal(parsedSalidaCampo.esFormatoReporte, false);
+  assert.equal(parsedSalidaCampo.esValido, false);
+  assert.equal(parsedSalidaCampo.errores.length, 0);
+  assert.deepEqual(extraerCedulas(reporteSalidaCampo), []);
 });
 
