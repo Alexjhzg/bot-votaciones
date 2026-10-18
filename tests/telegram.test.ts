@@ -29,6 +29,8 @@ const mockVoter: VoterRecord = {
   municipio: "Maturín",
   haVotado: false,
   corte: null,
+  horaReportada: null,
+  horaRecibida: null,
   fechaHoraVoto: null,
   reportadoPor: null,
   sheetTitle: "SEGEN",
@@ -75,6 +77,20 @@ test("formatearConfirmacionVoto incluye datos clave y corte", () => {
   assert.match(msg, /09:15 AM/);
   assert.doesNotMatch(msg, /Centro/);
   assert.doesNotMatch(msg, /Mesa/);
+});
+
+test("formatearConfirmacionVoto muestra hora reportada y hora recibida cuando difieren", () => {
+  const voterVoted: VoterRecord = {
+    ...mockVoter,
+    haVotado: true,
+    corte: "10:00 AM",
+    horaReportada: "10:00:00 AM",
+    horaRecibida: "10:35:12 AM",
+    fechaHoraVoto: "10:00:00 AM",
+  };
+  const msg = formatearConfirmacionVoto(voterVoted);
+  assert.match(msg, /Hora Reportada:.*10:00:00 AM/);
+  assert.match(msg, /Hora Recibida:.*10:35:12 AM/);
 });
 
 test("formatearAlertaYaVoto previene duplicados", () => {

@@ -70,7 +70,12 @@ export function formatearConfirmacionVoto(voter: VoterRecord): string {
   if (voter.corte) {
     msg += `🕒 *Corte:* ${voter.corte}\n`;
   }
-  msg += `⏰ *Hora:* ${voter.fechaHoraVoto}\n`;
+  if (voter.horaReportada && voter.horaRecibida && voter.horaReportada !== voter.horaRecibida) {
+    msg += `⏰ *Hora Reportada:* ${voter.horaReportada}\n`;
+    msg += `📥 *Hora Recibida:* ${voter.horaRecibida}\n`;
+  } else {
+    msg += `⏰ *Hora:* ${voter.horaReportada || voter.horaRecibida || voter.fechaHoraVoto}\n`;
+  }
   return msg;
 }
 
@@ -91,8 +96,11 @@ export function formatearAlertaYaVoto(
   if (voter.corte) {
     msg += `🕒 *Corte asignado:* ${voter.corte}\n`;
   }
-  if (fechaHoraPrevia) {
-    msg += `⏰ *Hora de registro anterior:* ${fechaHoraPrevia}\n`;
+  if (voter.horaReportada && voter.horaRecibida && voter.horaReportada !== voter.horaRecibida) {
+    msg += `⏰ *Hora reportada:* ${voter.horaReportada}\n`;
+    msg += `📥 *Hora recibida:* ${voter.horaRecibida}\n`;
+  } else if (voter.horaReportada || voter.fechaHoraVoto || fechaHoraPrevia) {
+    msg += `⏰ *Hora de registro anterior:* ${voter.horaReportada || voter.fechaHoraVoto || fechaHoraPrevia}\n`;
   }
   if (reportadoPorPrevio) {
     msg += `👤 *Registrado anteriormente por:* ${reportadoPorPrevio}\n`;
@@ -174,7 +182,7 @@ export function formatearReporteCorteSEGEN(
   msg += `👥 *Nómina Total:* ${stats.total.toLocaleString("es-VE")}\n`;
   msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
   msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n`;
-  msg += `🕒 *Votos recibidos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
+  msg += `🕒 *Votos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
 
   const cargos = Object.values(stats.porCargo || {}).sort((a, b) => b.total - a.total);
   if (cargos.length > 0) {
@@ -249,7 +257,7 @@ export function formatearReporteCorteINE(
   msg += `👥 *Nómina Total:* ${stats.total.toLocaleString("es-VE")}\n`;
   msg += `✅ *Total Votaron:* ${stats.votaron.toLocaleString("es-VE")} (${stats.porcentaje})\n`;
   msg += `⏳ *Faltan por Votar:* ${stats.pendientes.toLocaleString("es-VE")}\n`;
-  msg += `🕒 *Votos recibidos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
+  msg += `🕒 *Votos en este corte (${corteEtiqueta}):* ${votosEnEsteCorte}\n\n`;
 
   const unidades = Object.values(stats.porUnidad || {}).sort((a, b) => b.total - a.total);
   if (unidades.length > 0) {

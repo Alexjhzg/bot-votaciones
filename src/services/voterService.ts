@@ -25,11 +25,18 @@ export interface VoterRecord {
   municipio: string;
   haVotado: boolean;
   corte: string | null;
-  fechaHoraVoto: string | null;
+  horaReportada: string | null;
+  horaRecibida: string | null;
+  fechaHoraVoto: string | null; // Alias para retrocompatibilidad
   reportadoPor: string | null;
   sheetTitle: string;
   mapping: HeaderMapping;
   rowRef: GoogleSpreadsheetRow;
+}
+
+export interface OpcionesRegistroVoto {
+  horaReportada?: { horaStr: string; corte: string };
+  horaRecibida?: string;
 }
 
 export type RegistroResultadoStatus = "SUCCESS" | "ALREADY_VOTED" | "NOT_FOUND";
@@ -146,7 +153,14 @@ class VoterService {
             normVoto === "true";
 
           const rawCorte = String(row.get(mapping.corteKey) || "").trim() || null;
-          const fechaHoraVoto = String(row.get(mapping.fechaHoraKey) || "").trim() || null;
+          const horaReportada = String(
+            row.get(mapping.horaReportadaKey) ||
+            (mapping.fechaHoraKey ? row.get(mapping.fechaHoraKey) : "") ||
+            ""
+          ).trim() || null;
+          const horaRecibida = String(
+            (mapping.horaRecibidaKey ? row.get(mapping.horaRecibidaKey) : "") || ""
+          ).trim() || null;
           const reportadoPor = String(row.get(mapping.reportadoPorKey) || "").trim() || null;
 
           const voter: VoterRecord = {
@@ -161,7 +175,9 @@ class VoterService {
             municipio: rawMunicipio,
             haVotado,
             corte: rawCorte,
-            fechaHoraVoto,
+            horaReportada,
+            horaRecibida,
+            fechaHoraVoto: horaReportada,
             reportadoPor,
             sheetTitle: title,
             mapping,
@@ -220,12 +236,14 @@ class VoterService {
   public async registrarVoto(
     cedulaRaw: string,
     remitente: string,
-    horaPersonalizada?: { horaStr: string; corte: string }
+    opcionesOHoraPersonalizada?:
+      | OpcionesRegistroVoto
+      | { horaStr: string; corte: string }
   ): Promise<RegistroResultado> {
     const cedula = limpiarCedula(cedulaRaw);
     return voteQueue.add(
       async () => {
-        return this.ejecutarRegistroVoto(cedula, remitente, horaPersonalizada);
+        return this.ejecutarRegistroVoto(cedula, remitente, opcionesOHoraPersonalizada);
       },
       { label: `Registro Voto C.I. ${cedula}` }
     );
@@ -237,7 +255,9 @@ class VoterService {
   private async ejecutarRegistroVoto(
     cedula: string,
     remitente: string,
-    horaPersonalizada?: { horaStr: string; corte: string }
+    opcionesOHoraPersonalizada?:
+      | OpcionesRegistroVoto
+      | { horaStr: string; corte: string }
   ): Promise<RegistroResultado> {
     const voter = this.voters.get(cedula);
 
@@ -253,46 +273,71 @@ class VoterService {
         status: "ALREADY_VOTED",
         cedula,
         voter,
-        fechaHoraPrevia: voter.fechaHoraVoto,
+        fechaHoraPrevia: voter.horaReportada || voter.fechaHoraVoto,
         reportadoPorPrevio: voter.reportadoPor,
       };
     }
 
-    // Hora y corte horario oficial activo (o personalizado si proviene de un reporte formal)
-    let horaFinal: string;
+    // Normalizar opciones de reporte y recepción
+    let horaReportadaOpt: { horaStr: string; corte: string } | undefined;
+    let horaRecibidaOpt: string | undefined;
+
+    if (opcionesOHoraPersonalizada) {
+      if ("horaStr" in opcionesOHoraPersonalizada && "corte" in opcionesOHoraPersonalizada) {
+        horaReportadaOpt = opcionesOHoraPersonalizada;
+      } else {
+        const opts = opcionesOHoraPersonalizada as OpcionesRegistroVoto;
+        horaReportadaOpt = opts.horaReportada;
+        horaRecibidaOpt = opts.horaRecibida;
+      }
+    }
+
+    const { horaStr: horaActualStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
+
+    let horaReportadaFinal: string;
+    let horaRecibidaFinal: string = horaRecibidaOpt || horaActualStr;
     let corteFinal: string;
 
-    if (horaPersonalizada) {
-      horaFinal = horaPersonalizada.horaStr;
-      corteFinal = horaPersonalizada.corte;
+    if (horaReportadaOpt) {
+      horaReportadaFinal = horaReportadaOpt.horaStr;
+      corteFinal = horaReportadaOpt.corte;
     } else {
-      const { horaStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
       const corte = determinarCortePorHora(hora24, minuto);
-      horaFinal = horaStr;
+      horaReportadaFinal = horaRecibidaFinal;
       corteFinal = corte.etiqueta;
     }
 
     // Actualizar en memoria primero (protege contra reintentos concurrentes)
     voter.haVotado = true;
     voter.corte = corteFinal;
-    voter.fechaHoraVoto = horaFinal;
+    voter.horaReportada = horaReportadaFinal;
+    voter.horaRecibida = horaRecibidaFinal;
+    voter.fechaHoraVoto = horaReportadaFinal;
     voter.reportadoPor = remitente;
 
     // Persistir de inmediato en Google Sheets
     try {
       voter.rowRef.set(voter.mapping.votoKey, "SI");
-      voter.rowRef.set(voter.mapping.fechaHoraKey, horaFinal);
+      voter.rowRef.set(voter.mapping.horaReportadaKey, horaReportadaFinal);
+      if (voter.mapping.horaRecibidaKey) {
+        voter.rowRef.set(voter.mapping.horaRecibidaKey, horaRecibidaFinal);
+      }
+      if (voter.mapping.fechaHoraKey && voter.mapping.fechaHoraKey !== voter.mapping.horaReportadaKey) {
+        voter.rowRef.set(voter.mapping.fechaHoraKey, horaReportadaFinal);
+      }
       voter.rowRef.set(voter.mapping.corteKey, corteFinal);
       voter.rowRef.set(voter.mapping.reportadoPorKey, remitente);
       await voter.rowRef.save();
       console.log(
-        `[INFO] [COLA] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Corte: ${corteFinal}`
+        `[INFO] [COLA] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Reportada: ${horaReportadaFinal} | Recibida: ${horaRecibidaFinal} | Corte: ${corteFinal}`
       );
     } catch (err) {
       console.error(`[ERROR] [COLA] Falló al guardar el voto en Google Sheets para C.I. ${cedula}:`, err);
       // Revertir memoria si falló la persistencia definitiva
       voter.haVotado = false;
       voter.corte = null;
+      voter.horaReportada = null;
+      voter.horaRecibida = null;
       voter.fechaHoraVoto = null;
       voter.reportadoPor = null;
       throw err;
@@ -335,12 +380,20 @@ class VoterService {
 
     voter.haVotado = false;
     voter.corte = null;
+    voter.horaReportada = null;
+    voter.horaRecibida = null;
     voter.fechaHoraVoto = null;
     voter.reportadoPor = null;
 
     try {
       voter.rowRef.set(voter.mapping.votoKey, "NO");
-      voter.rowRef.set(voter.mapping.fechaHoraKey, "");
+      voter.rowRef.set(voter.mapping.horaReportadaKey, "");
+      if (voter.mapping.horaRecibidaKey) {
+        voter.rowRef.set(voter.mapping.horaRecibidaKey, "");
+      }
+      if (voter.mapping.fechaHoraKey && voter.mapping.fechaHoraKey !== voter.mapping.horaReportadaKey) {
+        voter.rowRef.set(voter.mapping.fechaHoraKey, "");
+      }
       voter.rowRef.set(voter.mapping.corteKey, "");
       voter.rowRef.set(voter.mapping.reportadoPorKey, `Deshecho por ${remitente}`);
       await voter.rowRef.save();

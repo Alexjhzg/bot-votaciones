@@ -41,4 +41,22 @@ test("detectarMapeoColumnas identifica variantes cortas (CI, Nombre)", () => {
   assert.equal(mapping.centroKey, "Colegio");
   assert.equal(mapping.votoKey, "Voto");
   assert.equal(mapping.corteKey, "Corte");
+  assert.equal(mapping.horaReportadaKey, "Hora Reportada");
+  assert.equal(mapping.horaRecibidaKey, "Hora Recibida");
+});
+
+test("detectarMapeoColumnas identifica Hora Reportada y Hora Recibida explícitas", () => {
+  const headers = [
+    "Cédula",
+    "Nombre",
+    "Voto Listo",
+    "Hora Reportada",
+    "Hora Recibida",
+    "Corte",
+    "Reportado Por",
+  ];
+  const mapping = detectarMapeoColumnas(headers);
+  assert.equal(mapping.horaReportadaKey, "Hora Reportada");
+  assert.equal(mapping.horaRecibidaKey, "Hora Recibida");
+  assert.equal(mapping.fechaHoraKey, "Hora Reportada");
 });

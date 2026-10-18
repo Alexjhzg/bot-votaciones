@@ -105,14 +105,17 @@ export function extraerCedulas(texto: string): string[] {
 /**
  * Obtiene la fecha y hora formateada en la zona horaria del sistema (ej. America/Caracas).
  */
-export function obtenerFechaHoraActual(timezone: string = "America/Caracas"): {
+export function obtenerFechaHoraActual(
+  timezone: string = "America/Caracas",
+  fechaBase?: Date
+): {
   fechaStr: string;
   horaStr: string;
   completaStr: string;
   hora24: number;
   minuto: number;
 } {
-  const ahora = new Date();
+  const ahora = fechaBase || new Date();
 
   const fechaFormat = new Intl.DateTimeFormat("es-VE", {
     timeZone: timezone,

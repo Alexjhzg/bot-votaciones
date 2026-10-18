@@ -1,11 +1,13 @@
 import { Bot } from "grammy";
 import { voterService, RegistroResultado } from "../services/voterService.js";
+import { config } from "../config/index.js";
 import {
   extraerCedulas,
   esIntencionVotoListo,
   formatearCedula,
   esFormatoReporte,
   parsearReporteVoto,
+  obtenerFechaHoraActual,
 } from "../utils/parser.js";
 import {
   obtenerNombreRemitente,
@@ -35,6 +37,10 @@ export function registrarHandlers(bot: Bot): void {
     const esGrupo = ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
     const origenDesc = esGrupo && "title" in ctx.chat ? `Grupo "${(ctx.chat as any).title}" (${ctx.chat.id})` : `Privado (${ctx.chat?.id})`;
 
+    // Obtener la hora exacta de recepción del mensaje
+    const fechaMensaje = mensajeObj.date ? new Date(mensajeObj.date * 1000) : new Date();
+    const { horaStr: horaRecibidaStr } = obtenerFechaHoraActual(config.app.timezone, fechaMensaje);
+
     // ==========================================================
     // 2.1 VERIFICAR FORMATO ESTRUCTURADO DE REPORTE (NODO / CÉDULA / HORA)
     // ==========================================================
@@ -52,12 +58,17 @@ export function registrarHandlers(bot: Bot): void {
 
       // El formato es válido: registrar con la hora y corte reportados oficialmente
       console.log(
-        `[INFO] [${origenDesc}] Reporte de voto válido para Nodo "${parsed.nodo}" (${remitente}): [${parsed.cedulas.join(", ")}] - Hora: ${parsed.horaInfo?.horaStr} [${parsed.horaInfo?.corte}]`
+        `[INFO] [${origenDesc}] Reporte de voto válido para Nodo "${parsed.nodo}" (${remitente}): [${parsed.cedulas.join(", ")}] - Reportada: ${parsed.horaInfo?.horaStr} [${parsed.horaInfo?.corte}] | Recibida: ${horaRecibidaStr}`
       );
 
-      const horaPersonalizada = parsed.horaInfo
+      const horaReportada = parsed.horaInfo
         ? { horaStr: parsed.horaInfo.horaStr, corte: parsed.horaInfo.corte }
         : undefined;
+
+      const opcionesRegistro = {
+        horaReportada,
+        horaRecibida: horaRecibidaStr,
+      };
 
       const exitosos: string[] = [];
       const yaVotaron: string[] = [];
@@ -65,7 +76,7 @@ export function registrarHandlers(bot: Bot): void {
 
       for (const cedula of parsed.cedulas) {
         try {
-          const res = await voterService.registrarVoto(cedula, remitente, horaPersonalizada);
+          const res = await voterService.registrarVoto(cedula, remitente, opcionesRegistro);
           if (res.status === "SUCCESS" && res.voter) {
             exitosos.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
           } else if (res.status === "ALREADY_VOTED" && res.voter) {
@@ -140,7 +151,9 @@ export function registrarHandlers(bot: Bot): void {
     if (cedulas.length === 1) {
       const cedula = cedulas[0];
       try {
-        const res = await voterService.registrarVoto(cedula, remitente);
+        const res = await voterService.registrarVoto(cedula, remitente, {
+          horaRecibida: horaRecibidaStr,
+        });
 
         if (res.status === "SUCCESS" && res.voter) {
           try {
@@ -189,7 +202,9 @@ export function registrarHandlers(bot: Bot): void {
 
     for (const cedula of cedulas) {
       try {
-        const res = await voterService.registrarVoto(cedula, remitente);
+        const res = await voterService.registrarVoto(cedula, remitente, {
+          horaRecibida: horaRecibidaStr,
+        });
         if (res.status === "SUCCESS" && res.voter) {
           exitosos.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);
         } else if (res.status === "ALREADY_VOTED" && res.voter) {
