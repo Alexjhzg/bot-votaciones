@@ -14,8 +14,9 @@ export interface HeaderMapping {
   parroquiaKey?: string;
   municipioKey?: string;
   votoKey: string;
-  horaReportadaKey: string;
-  horaRecibidaKey: string;
+  horaKey: string;
+  horaReportadaKey?: string;
+  horaRecibidaKey?: string;
   fechaHoraKey: string;
   corteKey: string;
   reportadoPorKey: string;
@@ -173,14 +174,12 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
       /voto/i,
     ]) || "Voto Listo";
 
+
   const horaReportadaKey =
     buscarColumna([
       /^hora.*report/i,
       /^report.*hora/i,
-      /^hora.*voto/i,
-      /^hora$/i,
-      /^fecha.*hora$/i,
-    ]) || "Hora Reportada";
+    ]);
 
   const horaRecibidaKey =
     buscarColumna([
@@ -189,10 +188,19 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
       /^hora.*lleg/i,
       /^hora.*mensaj/i,
       /^hora.*telegram/i,
-      /^timestamp$/i,
-    ]) || "Hora Recibida";
+    ]);
 
-  const fechaHoraKey = horaReportadaKey;
+  const horaKey =
+    horaRecibidaKey ||
+    buscarColumna([
+      /^hora$/i,
+      /^fecha.*hora$/i,
+      /^hora.*voto/i,
+      /^hora.*registro/i,
+      /^timestamp$/i,
+    ]) || "Hora";
+
+  const fechaHoraKey = horaReportadaKey || horaRecibidaKey || horaKey;
 
   const corteKey =
     buscarColumna([
@@ -221,6 +229,7 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
     parroquiaKey,
     municipioKey,
     votoKey,
+    horaKey,
     horaReportadaKey,
     horaRecibidaKey,
     fechaHoraKey,
@@ -230,9 +239,9 @@ export function detectarMapeoColumnas(headerValues: string[]): HeaderMapping {
 }
 
 /**
- * Asegura que la hoja tenga las columnas de auditoría de voto:
- * "Voto Listo", "Hora Reportada", "Hora Recibida", "Corte", "Reportado Por".
- * Si existía "Fecha y Hora" o "Hora", la renombra automáticamente a "Hora Reportada".
+ * Asegura las columnas requeridas de voto según la nómina:
+ * - SEGEN: "Voto Listo", "Hora Reportada", "Hora Recibida", "Corte", "Reportado Por"
+ * - INE: "Voto Listo", "Hora Recibida", "Corte", "Reportado Por" (solo hora recibida en Telegram)
  */
 export async function asegurarColumnasDeVoto(
   sheet: GoogleSpreadsheetWorksheet
@@ -240,54 +249,123 @@ export async function asegurarColumnasDeVoto(
   await sheet.loadHeaderRow();
   let headers = [...sheet.headerValues];
 
-  // Renombrar automáticamente "Fecha y Hora" o "Hora" a "Hora Reportada" si aún no existe
-  const tieneHoraReportada = headers.some((h) =>
-    /^hora.*report|^report.*hora/i.test(normalizarTexto(h))
-  );
+  const normTitle = normalizarTexto(sheet.title);
+  const esSegen = normTitle.includes("segen");
 
-  let renombrado = false;
-  if (!tieneHoraReportada) {
-    headers = headers.map((h) => {
-      const norm = normalizarTexto(h);
-      if (norm === "hora" || norm === "fecha y hora") {
-        renombrado = true;
-        return "Hora Reportada";
-      }
-      return h;
-    });
-  }
-
-  if (renombrado) {
-    await sheet.setHeaderRow(headers);
-  }
-
-  let mapping = detectarMapeoColumnas(headers);
   let huboCambios = false;
 
-  const columnasRequeridas = [
-    { key: mapping.votoKey, fallback: "Voto Listo" },
-    { key: mapping.horaReportadaKey, fallback: "Hora Reportada" },
-    { key: mapping.horaRecibidaKey, fallback: "Hora Recibida" },
-    { key: mapping.corteKey, fallback: "Corte" },
-    { key: mapping.reportadoPorKey, fallback: "Reportado Por" },
-  ];
+  if (esSegen) {
+    // =========================================================================
+    // SEGEN: Maneja formato estructurado de Nodo -> Requiere "Hora Reportada" y "Hora Recibida"
+    // =========================================================================
+    const tieneHoraReportada = headers.some((h) =>
+      /^hora.*report|^report.*hora/i.test(normalizarTexto(h))
+    );
 
-  for (const col of columnasRequeridas) {
-    if (!headers.some((h) => normalizarTexto(h) === normalizarTexto(col.key))) {
-      headers.push(col.fallback);
-      huboCambios = true;
+    // Renombrar la columna histórica "Hora" a "Hora Reportada" si no existía aún
+    if (!tieneHoraReportada) {
+      headers = headers.map((h) => {
+        const norm = normalizarTexto(h);
+        if (norm === "hora" || norm === "fecha y hora") {
+          huboCambios = true;
+          return "Hora Reportada";
+        }
+        return h;
+      });
     }
-  }
 
-  if (huboCambios) {
-    if (headers.length > sheet.columnCount) {
-      await sheet.resize({ rowCount: sheet.rowCount, columnCount: headers.length });
+    let mapping = detectarMapeoColumnas(headers);
+    const colReportada = mapping.horaReportadaKey || "Hora Reportada";
+    const colRecibida = mapping.horaRecibidaKey || "Hora Recibida";
+
+    const columnasRequeridasSegen = [
+      { key: mapping.votoKey, fallback: "Voto Listo" },
+      { key: colReportada, fallback: "Hora Reportada" },
+      { key: colRecibida, fallback: "Hora Recibida" },
+      { key: mapping.corteKey, fallback: "Corte" },
+      { key: mapping.reportadoPorKey, fallback: "Reportado Por" },
+    ];
+
+    for (const col of columnasRequeridasSegen) {
+      if (!headers.some((h) => normalizarTexto(h) === normalizarTexto(col.key))) {
+        headers.push(col.fallback);
+        huboCambios = true;
+      }
     }
-    await sheet.setHeaderRow(headers);
-    mapping = detectarMapeoColumnas(headers);
-  }
 
-  return mapping;
+    if (huboCambios) {
+      if (headers.length > sheet.columnCount) {
+        await sheet.resize({ rowCount: sheet.rowCount, columnCount: headers.length });
+      }
+      await sheet.setHeaderRow(headers);
+    }
+
+    return detectarMapeoColumnas(headers);
+  } else {
+    // =========================================================================
+    // INE: Solo debe tener "Hora Recibida" (NO Hora Reportada)
+    // =========================================================================
+    let yaTieneHoraRecibida = false;
+    const nuevosHeaders: string[] = [];
+
+    for (const h of headers) {
+      const norm = normalizarTexto(h);
+      if (norm === "hora reportada" || norm === "hora" || norm === "fecha y hora" || norm === "hora recibida") {
+        if (!yaTieneHoraRecibida) {
+          nuevosHeaders.push("Hora Recibida");
+          yaTieneHoraRecibida = true;
+          if (h !== "Hora Recibida") huboCambios = true;
+        } else {
+          // Omitir columna duplicada/sobrante
+          huboCambios = true;
+        }
+      } else {
+        nuevosHeaders.push(h);
+      }
+    }
+
+    headers = nuevosHeaders;
+
+    let mapping = detectarMapeoColumnas(headers);
+    const colRecibida = mapping.horaRecibidaKey || "Hora Recibida";
+
+    const columnasRequeridasIne = [
+      { key: mapping.votoKey, fallback: "Voto Listo" },
+      { key: colRecibida, fallback: "Hora Recibida" },
+      { key: mapping.corteKey, fallback: "Corte" },
+      { key: mapping.reportadoPorKey, fallback: "Reportado Por" },
+    ];
+
+    for (const col of columnasRequeridasIne) {
+      if (!headers.some((h) => normalizarTexto(h) === normalizarTexto(col.key))) {
+        headers.push(col.fallback);
+        huboCambios = true;
+      }
+    }
+
+    if (huboCambios) {
+      if (headers.length > sheet.columnCount) {
+        await sheet.resize({ rowCount: sheet.rowCount, columnCount: headers.length });
+      }
+      // Limpiar celdas en la fila 1 que hayan quedado fuera de los nuevos headers (ej. columna J que se eliminó)
+      if (sheet.columnCount > headers.length) {
+        await sheet.loadCells({
+          startRowIndex: 0,
+          endRowIndex: 1,
+          startColumnIndex: headers.length,
+          endColumnIndex: sheet.columnCount,
+        });
+        for (let c = headers.length; c < sheet.columnCount; c++) {
+          const cell = sheet.getCell(0, c);
+          cell.value = "";
+        }
+        await sheet.saveUpdatedCells();
+      }
+      await sheet.setHeaderRow(headers);
+    }
+
+    return detectarMapeoColumnas(headers);
+  }
 }
 
 /**

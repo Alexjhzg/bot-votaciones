@@ -40,8 +40,28 @@ test("detectarMapeoColumnas identifica variantes cortas (CI, Nombre)", () => {
   assert.equal(mapping.nombreKey, "Nombre");
   assert.equal(mapping.centroKey, "Colegio");
   assert.equal(mapping.votoKey, "Voto");
+  assert.equal(mapping.horaKey, "Hora");
   assert.equal(mapping.corteKey, "Corte");
-  assert.equal(mapping.horaReportadaKey, "Hora Reportada");
+  assert.equal(mapping.reportadoPorKey, "Reportado Por");
+});
+
+test("detectarMapeoColumnas identifica cabeceras de INE con columna única Hora Recibida", () => {
+  const headers = [
+    "N°",
+    "Apellidos y Nombres",
+    "Cédula",
+    "Cargo",
+    "Coord/Unidad",
+    "Voto Listo",
+    "Hora Recibida",
+    "Corte",
+    "Reportado Por",
+  ];
+  const mapping = detectarMapeoColumnas(headers);
+  assert.equal(mapping.cedulaKey, "Cédula");
+  assert.equal(mapping.nombreKey, "Apellidos y Nombres");
+  assert.equal(mapping.horaKey, "Hora Recibida");
+  assert.equal(mapping.horaReportadaKey, undefined);
   assert.equal(mapping.horaRecibidaKey, "Hora Recibida");
 });
 

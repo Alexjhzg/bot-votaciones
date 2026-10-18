@@ -1,5 +1,5 @@
 import { Bot } from "grammy";
-import { voterService, RegistroResultado } from "../services/voterService.js";
+import { voterService, RegistroResultado, OpcionesRegistroVoto } from "../services/voterService.js";
 import { config } from "../config/index.js";
 import {
   extraerCedulas,
@@ -8,6 +8,7 @@ import {
   esFormatoReporte,
   parsearReporteVoto,
   obtenerFechaHoraActual,
+  determinarCortePorHora,
 } from "../utils/parser.js";
 import {
   obtenerNombreRemitente,
@@ -39,7 +40,12 @@ export function registrarHandlers(bot: Bot): void {
 
     // Obtener la hora exacta de recepción del mensaje
     const fechaMensaje = mensajeObj.date ? new Date(mensajeObj.date * 1000) : new Date();
-    const { horaStr: horaRecibidaStr } = obtenerFechaHoraActual(config.app.timezone, fechaMensaje);
+    const {
+      horaStr: horaRecibidaStr,
+      hora24: horaRecibida24,
+      minuto: minutoRecibido,
+    } = obtenerFechaHoraActual(config.app.timezone, fechaMensaje);
+    const corteRecibido = determinarCortePorHora(horaRecibida24, minutoRecibido).etiqueta;
 
     // ==========================================================
     // 2.1 VERIFICAR FORMATO ESTRUCTURADO DE REPORTE (NODO / CÉDULA / HORA)
@@ -65,9 +71,11 @@ export function registrarHandlers(bot: Bot): void {
         ? { horaStr: parsed.horaInfo.horaStr, corte: parsed.horaInfo.corte }
         : undefined;
 
-      const opcionesRegistro = {
+      const opcionesRegistro: OpcionesRegistroVoto = {
         horaReportada,
         horaRecibida: horaRecibidaStr,
+        fechaRecibida: fechaMensaje,
+        corteRecibido,
       };
 
       const exitosos: string[] = [];
@@ -153,6 +161,8 @@ export function registrarHandlers(bot: Bot): void {
       try {
         const res = await voterService.registrarVoto(cedula, remitente, {
           horaRecibida: horaRecibidaStr,
+          fechaRecibida: fechaMensaje,
+          corteRecibido,
         });
 
         if (res.status === "SUCCESS" && res.voter) {
@@ -204,6 +214,8 @@ export function registrarHandlers(bot: Bot): void {
       try {
         const res = await voterService.registrarVoto(cedula, remitente, {
           horaRecibida: horaRecibidaStr,
+          fechaRecibida: fechaMensaje,
+          corteRecibido,
         });
         if (res.status === "SUCCESS" && res.voter) {
           exitosos.push(`${res.voter.nombre} (V-${formatearCedula(cedula)})`);

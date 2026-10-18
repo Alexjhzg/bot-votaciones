@@ -37,6 +37,8 @@ export interface VoterRecord {
 export interface OpcionesRegistroVoto {
   horaReportada?: { horaStr: string; corte: string };
   horaRecibida?: string;
+  fechaRecibida?: Date;
+  corteRecibido?: string;
 }
 
 export type RegistroResultadoStatus = "SUCCESS" | "ALREADY_VOTED" | "NOT_FOUND";
@@ -153,14 +155,34 @@ class VoterService {
             normVoto === "true";
 
           const rawCorte = String(row.get(mapping.corteKey) || "").trim() || null;
-          const horaReportada = String(
-            row.get(mapping.horaReportadaKey) ||
-            (mapping.fechaHoraKey ? row.get(mapping.fechaHoraKey) : "") ||
-            ""
-          ).trim() || null;
-          const horaRecibida = String(
-            (mapping.horaRecibidaKey ? row.get(mapping.horaRecibidaKey) : "") || ""
-          ).trim() || null;
+          const esSegen =
+            nominaFinal.toUpperCase().includes("SEGEN") || title.toLowerCase().includes("segen");
+
+          let horaReportada: string | null = null;
+          let horaRecibida: string | null = null;
+
+          if (esSegen) {
+            horaReportada =
+              String(
+                (mapping.horaReportadaKey ? row.get(mapping.horaReportadaKey) : "") ||
+                (mapping.fechaHoraKey ? row.get(mapping.fechaHoraKey) : "") ||
+                ""
+              ).trim() || null;
+            horaRecibida =
+              String(
+                (mapping.horaRecibidaKey ? row.get(mapping.horaRecibidaKey) : "") || ""
+              ).trim() || null;
+          } else {
+            // INE: Solo debe tener Hora Recibida (no maneja Hora Reportada)
+            const horaIne =
+              String(
+                (mapping.horaRecibidaKey ? row.get(mapping.horaRecibidaKey) : "") ||
+                (mapping.horaKey ? row.get(mapping.horaKey) : "") ||
+                ""
+              ).trim() || null;
+            horaRecibida = horaIne;
+            horaReportada = null;
+          }
           const reportadoPor = String(row.get(mapping.reportadoPorKey) || "").trim() || null;
 
           const voter: VoterRecord = {
@@ -278,9 +300,16 @@ class VoterService {
       };
     }
 
+    // Determinar nómina para aplicar la regla de reportería correspondiente
+    const esSegen =
+      voter.nomina.toUpperCase().includes("SEGEN") ||
+      voter.sheetTitle.toLowerCase().includes("segen");
+
     // Normalizar opciones de reporte y recepción
     let horaReportadaOpt: { horaStr: string; corte: string } | undefined;
     let horaRecibidaOpt: string | undefined;
+    let fechaRecibidaOpt: Date | undefined;
+    let corteRecibidoOpt: string | undefined;
 
     if (opcionesOHoraPersonalizada) {
       if ("horaStr" in opcionesOHoraPersonalizada && "corte" in opcionesOHoraPersonalizada) {
@@ -289,47 +318,73 @@ class VoterService {
         const opts = opcionesOHoraPersonalizada as OpcionesRegistroVoto;
         horaReportadaOpt = opts.horaReportada;
         horaRecibidaOpt = opts.horaRecibida;
+        fechaRecibidaOpt = opts.fechaRecibida;
+        corteRecibidoOpt = opts.corteRecibido;
       }
     }
 
-    const { horaStr: horaActualStr, hora24, minuto } = obtenerFechaHoraActual(config.app.timezone);
+    const fechaRecibidaBase = fechaRecibidaOpt || new Date();
+    const infoTiempoRecibido = obtenerFechaHoraActual(config.app.timezone, fechaRecibidaBase);
+    const horaRecibidaFinal = horaRecibidaOpt || infoTiempoRecibido.horaStr;
+    const corteRecibidoFinal =
+      corteRecibidoOpt ||
+      determinarCortePorHora(infoTiempoRecibido.hora24, infoTiempoRecibido.minuto).etiqueta;
 
     let horaReportadaFinal: string;
-    let horaRecibidaFinal: string = horaRecibidaOpt || horaActualStr;
     let corteFinal: string;
 
-    if (horaReportadaOpt) {
-      horaReportadaFinal = horaReportadaOpt.horaStr;
-      corteFinal = horaReportadaOpt.corte;
+    if (esSegen) {
+      // =========================================================================
+      // SEGEN: Maneja formato estructurado de Nodo -> Hora Reportada y Hora Recibida
+      // =========================================================================
+      if (horaReportadaOpt) {
+        horaReportadaFinal = horaReportadaOpt.horaStr;
+        corteFinal = horaReportadaOpt.corte;
+      } else {
+        // En caso de reporte directo de un elector de SEGEN, ambas horas coinciden con Telegram
+        horaReportadaFinal = horaRecibidaFinal;
+        corteFinal = corteRecibidoFinal;
+      }
     } else {
-      const corte = determinarCortePorHora(hora24, minuto);
-      horaReportadaFinal = horaRecibidaFinal;
-      corteFinal = corte.etiqueta;
+      // =========================================================================
+      // INE: Solo debe tener Hora Recibida (la hora de llegada en Telegram)
+      // =========================================================================
+      horaReportadaFinal = "";
+      corteFinal = corteRecibidoFinal;
     }
 
     // Actualizar en memoria primero (protege contra reintentos concurrentes)
     voter.haVotado = true;
     voter.corte = corteFinal;
-    voter.horaReportada = horaReportadaFinal;
+    voter.horaReportada = esSegen ? horaReportadaFinal : null;
     voter.horaRecibida = horaRecibidaFinal;
-    voter.fechaHoraVoto = horaReportadaFinal;
+    voter.fechaHoraVoto = horaRecibidaFinal;
     voter.reportadoPor = remitente;
 
-    // Persistir de inmediato en Google Sheets
+    // Persistir de inmediato en Google Sheets según la estructura de la nómina
     try {
       voter.rowRef.set(voter.mapping.votoKey, "SI");
-      voter.rowRef.set(voter.mapping.horaReportadaKey, horaReportadaFinal);
-      if (voter.mapping.horaRecibidaKey) {
-        voter.rowRef.set(voter.mapping.horaRecibidaKey, horaRecibidaFinal);
+
+      if (esSegen) {
+        // En SEGEN guardamos Hora Reportada y Hora Recibida en sus respectivas columnas
+        const colReportada = voter.mapping.horaReportadaKey || "Hora Reportada";
+        const colRecibida = voter.mapping.horaRecibidaKey || "Hora Recibida";
+        voter.rowRef.set(colReportada, horaReportadaFinal);
+        voter.rowRef.set(colRecibida, horaRecibidaFinal);
+      } else {
+        // En INE solo se guarda en la columna 'Hora Recibida'
+        const colRecibida = voter.mapping.horaRecibidaKey || voter.mapping.horaKey || "Hora Recibida";
+        voter.rowRef.set(colRecibida, horaRecibidaFinal);
       }
-      if (voter.mapping.fechaHoraKey && voter.mapping.fechaHoraKey !== voter.mapping.horaReportadaKey) {
-        voter.rowRef.set(voter.mapping.fechaHoraKey, horaReportadaFinal);
-      }
+
       voter.rowRef.set(voter.mapping.corteKey, corteFinal);
       voter.rowRef.set(voter.mapping.reportadoPorKey, remitente);
       await voter.rowRef.save();
       console.log(
-        `[INFO] [COLA] Voto guardado en Sheets: C.I. ${cedula} (${voter.nombre}) [${voter.nomina} - ${voter.cargo} / ${voter.unidad}] - Reportada: ${horaReportadaFinal} | Recibida: ${horaRecibidaFinal} | Corte: ${corteFinal}`
+        `[INFO] [COLA] Voto guardado en Sheets [${voter.nomina}]: C.I. ${cedula} (${voter.nombre}) - ` +
+          (esSegen
+            ? `Reportada: ${horaReportadaFinal} | Recibida: ${horaRecibidaFinal} | Corte: ${corteFinal}`
+            : `Hora Recibida: ${horaRecibidaFinal} | Corte: ${corteFinal}`)
       );
     } catch (err) {
       console.error(`[ERROR] [COLA] Falló al guardar el voto en Google Sheets para C.I. ${cedula}:`, err);
@@ -378,6 +433,10 @@ class VoterService {
     if (!voter) return { status: "NOT_FOUND" };
     if (!voter.haVotado) return { status: "NOT_VOTED", voter };
 
+    const esSegen =
+      voter.nomina.toUpperCase().includes("SEGEN") ||
+      voter.sheetTitle.toLowerCase().includes("segen");
+
     voter.haVotado = false;
     voter.corte = null;
     voter.horaReportada = null;
@@ -387,17 +446,21 @@ class VoterService {
 
     try {
       voter.rowRef.set(voter.mapping.votoKey, "NO");
-      voter.rowRef.set(voter.mapping.horaReportadaKey, "");
-      if (voter.mapping.horaRecibidaKey) {
-        voter.rowRef.set(voter.mapping.horaRecibidaKey, "");
-      }
-      if (voter.mapping.fechaHoraKey && voter.mapping.fechaHoraKey !== voter.mapping.horaReportadaKey) {
-        voter.rowRef.set(voter.mapping.fechaHoraKey, "");
+      if (esSegen) {
+        if (voter.mapping.horaReportadaKey) {
+          voter.rowRef.set(voter.mapping.horaReportadaKey, "");
+        }
+        if (voter.mapping.horaRecibidaKey) {
+          voter.rowRef.set(voter.mapping.horaRecibidaKey, "");
+        }
+      } else {
+        const colRecibida = voter.mapping.horaRecibidaKey || voter.mapping.horaKey || "Hora Recibida";
+        voter.rowRef.set(colRecibida, "");
       }
       voter.rowRef.set(voter.mapping.corteKey, "");
       voter.rowRef.set(voter.mapping.reportadoPorKey, `Deshecho por ${remitente}`);
       await voter.rowRef.save();
-      console.log(`[INFO] [COLA] Voto deshecho en Sheets para C.I. ${cedula}`);
+      console.log(`[INFO] [COLA] Voto deshecho en Sheets para C.I. ${cedula} [${voter.nomina}]`);
     } catch (err) {
       console.error(`[ERROR] [COLA] Falló al deshacer voto en Google Sheets para C.I. ${cedula}:`, err);
       voter.haVotado = true; // revertir en memoria

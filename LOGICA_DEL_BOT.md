@@ -85,43 +85,27 @@ El servicio `voterService.ts` incluye un motor de detección flexible de cabecer
 * **Mesa:** `Mesa`, `Mesa de Votación`.
 * **Parroquia / Municipio:** `Parroquia`, `Municipio`.
 
-### Columnas de Auditoría Dinámica:
-Al arrancar o al registrar el primer voto, si no existen en la hoja, el bot crea automáticamente 4 columnas al final de cada pestaña:
-1. **`Voto Listo`**: Guarda `SI` cuando el elector ya sufragó.
-2. **`Hora`**: Guarda **únicamente la hora** en formato 12 horas con segundos y período (ejemplo: `03:12:15 PM`). No guarda fecha redundante para mantener limpia la hoja.
-3. **`Corte`**: Guarda el bloque horario al que se computó el voto (ej: `8:00 AM`, `10:00 AM`, `12:00 PM`, `2:00 PM`, `4:00 PM`, `6:00 PM`, `7:00 PM`).
-4. **`Reportado Por`**: Guarda el `@username` o nombre del usuario de Telegram que reportó el voto.
+### Columnas de Auditoría en Google Sheets (Diferenciadas por Nómina):
+El sistema maneja de forma diferenciada la persistencia según la naturaleza operativa de cada nómina:
+
+#### 1. Pestaña `segen` (Supervisores de Nodo - Formato Estructurado):
+* **`Voto Listo`**: Guarda `SI` cuando el elector sufragó.
+* **`Hora Reportada`**: Guarda la hora indicada en el reporte estructurado de nodo (`3. Hora: 10:00 AM`). Si el reporte fue directo por cédula, toma la hora de recepción.
+* **`Hora Recibida`**: Guarda la hora exacta de recepción del mensaje en Telegram (ej: `10:14:22 AM`).
+* **`Corte`**: Bloque horario calculado a partir de la **Hora Reportada** oficial del nodo.
+* **`Reportado Por`**: Usuario u operador de Telegram que reportó.
+
+#### 2. Pestaña `ine` (Flujo Directo Sencillo):
+* **`Voto Listo`**: Guarda `SI` cuando el elector sufragó.
+* **`Hora`**: Columna única limpia que guarda la **Hora Recibida en Telegram**.
+* **`Corte`**: Bloque horario calculado a partir de la **Hora Recibida en Telegram**.
+* **`Reportado Por`**: Usuario u operador de Telegram que reportó.
 
 ---
 
 ## 4. Flujos de Interacción en Telegram
 
-### A. Registro de Voto ("Voto Listo")
-* **Entrada:** `12345678 voto listo`, `V-12.345.678 voto listo`, `voto listo 12345678`, `12345678 listo`.
-* **Lógica:**
-  1. La expresión regular `esIntencionVotoListo(texto)` detecta que el mensaje contiene la intención de marcar voto emitido.
-  2. Extrae la cédula numérica limpia (ej: `12345678`).
-  3. Busca al elector en memoria. Si no existe en el padrón, notifica que la cédula no pertenece a las nóminas cargadas.
-  4. Si ya votó previamente:
-     * **No sobreescribe la hoja ni duplica registros.**
-     * Responde con alerta informativa:
-       ```text
-       ⚠️ ATENCIÓN: EL VOTO YA FUE REGISTRADO PREVIAMENTE
-       👤 Elector: Juan Pérez
-       🆔 Cédula: V-12.345.678
-       🏢 Nómina: SEGEN
-       ⏰ Hora de registro anterior: 09:15:30 AM
-       👤 Registrado por: @operador1
-       ```
-  5. Si estaba pendiente:
-     * Calcula la hora actual de Venezuela (ej: `10:24:18 AM`).
-     * Determina el corte correspondiente (ej: `10:00 AM`).
-     * Actualiza el registro en memoria.
-     * Envía la actualización asíncrona a Google Sheets en la fila y columnas exactas (`Voto Listo = SI`, `Hora = 10:24:18 AM`, `Corte = 10:00 AM`, `Reportado Por = @usuario`).
-     * Responde confirmación exitosa con la tarjeta del elector.
-* **Procesamiento Masivo:** Si un usuario envía múltiples cédulas en un solo mensaje acompañadas de la frase "voto listo", el bot las procesa una por una secuencialmente y responde el estatus de cada una.
-
-### B. Formato Estructurado de Reporte de Voto (SEGEN / Supervisores de Nodo)
+### A. Reporte Estructurado de Voto por Nodo (SEGEN)
 * **Plantilla oficial:**
   ```text
   Formato de reporte de voto
@@ -132,16 +116,21 @@ Al arrancar o al registrar el primer voto, si no existen en la hoja, el bot crea
   3. Hora: 10:00 AM
   ```
 * **Lógica y Validaciones:**
-  1. `esFormatoReporte(texto)` detecta explícitamente el encabezado oficial `Formato de reporte de voto` (o `Formato de reporte de votos`). Esto previene falsos positivos con otros formatos de campo (verificadores, apertura, incidencias).
-  2. `parsearReporteVoto(texto)` valida cada uno de los campos:
-     * **`1. Nodo:`** Obligatorio. Debe contener el número o nombre del nodo.
-     * **`2. Cédula:`** Obligatorio. Extrae todas las cédulas listadas (de 7 a 8 dígitos). Si se dejan ceros de plantilla (`00000000`) o números incompletos, genera alerta inmediata.
-     * **`3. Hora:`** Obligatorio. Acepta formatos de 12 horas con am/pm (ej: `10:15 am`, `2:30 pm`) o militar 24h (ej: `14:20`). Calcula el corte oficial correspondiente al horario indicado.
-  3. **Alertas por Formato Incorrecto:**
-     * Si el reporte viene incompleto o mal escrito, el bot **NO** registra votos incompletos y responde de inmediato con una alerta detallando cada error específico y mostrando el ejemplo correcto a copiar.
-  4. **Registro Exitoso:**
-     * Si todo es correcto, registra los votos en Google Sheets con la hora y corte reportados y reacciona con 👍 al mensaje.
-     * Si alguna cédula ya había votado o no existe en la nómina, emite el reporte de incidencias indicando el nodo.
+  1. `esFormatoReporte(texto)` detecta explícitamente el encabezado oficial `Formato de reporte de voto` (o `Formato de reporte de votos`).
+  2. Valida obligatoriedad de `1. Nodo:`, `2. Cédula:` y `3. Hora:`.
+  3. Al registrar:
+     * Para electores de **SEGEN**: Registra la **Hora Reportada** (la escrita en el formato) y la **Hora Recibida** (la estampa de Telegram del mensaje). El corte se asigna según la **Hora Reportada**.
+     * Si contiene electores de **INE**: El INE solo toma en cuenta la **Hora Recibida en Telegram** y su corte correspondiente, guardándolo en la columna `Hora`.
+  4. Responde con reacción 👍 y emite incidencias si alguna cédula ya votó o no existe.
+
+### B. Reporte Directo Sencillo (INE y Cédula Directa)
+* **Entrada:** `12345678`, `12345678 voto listo`, o lista de cédulas.
+* **Lógica:**
+  1. Diseñado especialmente para **INE** ("mucho más sencillo, solo necesita la cédula").
+  2. Toma la **hora exacta de recepción en Telegram** (`horaRecibida`).
+  3. Calcula el corte horario oficial según la hora de recepción en Telegram.
+  4. Para electores del INE, actualiza en la pestaña `ine` las columnas `Voto Listo`, `Hora` (con la hora de recepción), `Corte` y `Reportado Por`.
+  5. Reacciona con 👍 de manera silenciosa si el registro fue exitoso (evitando saturar los grupos de trabajo). Si ya votó, emite una alerta informativa sin duplicar el registro.
 
 ### C. Consulta Rápida de Centro de Votación
 * **Entrada:** `12345678` (solo el número de cédula).
